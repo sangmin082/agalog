@@ -4,7 +4,16 @@ export type RecordType =
   | 'pump'        // 유축
   | 'pee'         // 소변
   | 'poop'        // 대변
-  | 'vomit';      // 구토
+  | 'vomit'       // 구토
+  | 'sleep';      // 수면
+
+export interface GrowthEntry {
+  id: string;
+  date: string; // ISO string
+  weightKg?: number;
+  heightCm?: number;
+  headCm?: number;
+}
 
 export interface RecordEntry {
   id: string;
@@ -25,6 +34,7 @@ export const RECORD_LABELS: Record<RecordType, string> = {
   pee: '소변',
   poop: '대변',
   vomit: '구토',
+  sleep: '수면',
 };
 
 export const RECORD_ICONS: Record<RecordType, string> = {
@@ -34,6 +44,7 @@ export const RECORD_ICONS: Record<RecordType, string> = {
   pee: '💛',
   poop: '💩',
   vomit: '🤢',
+  sleep: '😴',
 };
 
 export const RECORD_COLORS: Record<RecordType, string> = {
@@ -43,4 +54,5 @@ export const RECORD_COLORS: Record<RecordType, string> = {
   pee: '#FFD43B',
   poop: '#A17246',
   vomit: '#B5A7D5',
+  sleep: '#748FFC',
 };

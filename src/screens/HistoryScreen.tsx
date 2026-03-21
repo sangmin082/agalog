@@ -21,6 +21,7 @@ function getDetail(entry: RecordEntry): string {
   if (entry.leftMinutes) parts.push(`좌 ${entry.leftMinutes}분`);
   if (entry.rightMinutes) parts.push(`우 ${entry.rightMinutes}분`);
   if (entry.amountMl) parts.push(`${entry.amountMl}ml`);
+  if (entry.durationMinutes) parts.push(`${entry.durationMinutes}분`);
   if (entry.note) parts.push(entry.note);
   return parts.join(' · ');
 }

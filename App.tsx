@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import HomeScreen from './src/screens/HomeScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import GrowthScreen from './src/screens/GrowthScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,22 +20,28 @@ export default function App() {
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: '#FF8FAB',
+            tabBarActiveTintColor: '#748FFC',
             tabBarInactiveTintColor: '#999',
             tabBarStyle: { paddingBottom: 8, height: 60 },
           }}
         >
           <Tab.Screen
             name="Home"
-            options={{ title: '홈', tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>🏠</Text> }}
+            options={{ title: '홈', tabBarIcon: () => <Text style={{ fontSize: 22 }}>🏠</Text> }}
           >
             {() => <HomeScreen onRecordAdded={() => setRefresh((n) => n + 1)} />}
           </Tab.Screen>
           <Tab.Screen
             name="History"
-            options={{ title: '기록', tabBarIcon: ({ color }) => <Text style={{ fontSize: 22 }}>📋</Text> }}
+            options={{ title: '기록', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📋</Text> }}
           >
             {() => <HistoryScreen refresh={refresh} />}
+          </Tab.Screen>
+          <Tab.Screen
+            name="Growth"
+            options={{ title: '성장', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📏</Text> }}
+          >
+            {() => <GrowthScreen />}
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
