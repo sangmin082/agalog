@@ -44,7 +44,7 @@ export async function extractGrowthFromImage(
 숫자만 추출하세요 (단위 제외). 읽기 어려운 값은 null로 하세요.`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
