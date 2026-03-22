@@ -4,8 +4,9 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { DS } from '../theme';
+import { DS, cardShadow } from '../theme';
 import { signupWithEmail } from '../storage/auth';
 import { saveBabyProfile } from '../storage/auth';
 
@@ -40,13 +41,11 @@ function formatDisplayTime(date: Date): string {
 }
 
 export default function SignupScreen({ onSignup, onGoLogin }: Props) {
-  // Step 1: user info
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
 
-  // Step 2: baby info
   const [babyName, setBabyName] = useState('');
   const [birthday, setBirthday] = useState<Date>(new Date());
   const [birthTime, setBirthTime] = useState<Date>(new Date());
@@ -54,7 +53,6 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
 
-  // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -93,7 +91,9 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🍼</Text>
+            <View style={styles.logoWrap}>
+              <Ionicons name="heart" size={28} color={DS.primary} />
+            </View>
             <Text style={styles.appName}>아가로그</Text>
           </View>
 
@@ -109,7 +109,6 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
           </View>
 
           {step === 1 ? (
-            /* ── Step 1: User Info ── */
             <View style={styles.form}>
               <Text style={styles.formTitle}>계정 만들기</Text>
 
@@ -166,11 +165,10 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
                 style={styles.primaryBtn}
                 onPress={() => { if (validateStep1()) setStep(2); }}
               >
-                <Text style={styles.primaryBtnText}>다음 →</Text>
+                <Text style={styles.primaryBtnText}>다음</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            /* ── Step 2: Baby Info ── */
             <View style={styles.form}>
               <Text style={styles.formTitle}>아기 정보 입력</Text>
 
@@ -191,8 +189,11 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
                   style={styles.pickerBtn}
                   onPress={() => setShowDatePicker(true)}
                 >
-                  <Text style={styles.pickerBtnText}>🗓  {formatDisplayDate(birthday)}</Text>
-                  <Text style={styles.pickerArrow}>›</Text>
+                  <View style={styles.pickerBtnInner}>
+                    <Ionicons name="calendar-outline" size={18} color={DS.primary} />
+                    <Text style={styles.pickerBtnText}>{formatDisplayDate(birthday)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={DS.textLight} />
                 </TouchableOpacity>
               </View>
 
@@ -202,8 +203,11 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
                   style={styles.pickerBtn}
                   onPress={() => setShowTimePicker(true)}
                 >
-                  <Text style={styles.pickerBtnText}>🕐  {formatDisplayTime(birthTime)}</Text>
-                  <Text style={styles.pickerArrow}>›</Text>
+                  <View style={styles.pickerBtnInner}>
+                    <Ionicons name="time-outline" size={18} color={DS.primary} />
+                    <Text style={styles.pickerBtnText}>{formatDisplayTime(birthTime)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={DS.textLight} />
                 </TouchableOpacity>
               </View>
 
@@ -212,7 +216,10 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
                   style={styles.secondaryBtn}
                   onPress={() => setStep(1)}
                 >
-                  <Text style={styles.secondaryBtnText}>← 이전</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="chevron-back" size={16} color={DS.textSub} />
+                    <Text style={styles.secondaryBtnText}>이전</Text>
+                  </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.primaryBtn, { flex: 1, marginLeft: 10 }, loading && { opacity: 0.7 }]}
@@ -221,7 +228,7 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
                 >
                   {loading
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.primaryBtnText}>가입 완료 🎉</Text>
+                    : <Text style={styles.primaryBtnText}>가입 완료</Text>
                   }
                 </TouchableOpacity>
               </View>
@@ -238,7 +245,7 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* iOS date picker — shown inline in a modal */}
+      {/* iOS date picker */}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal transparent animationType="slide">
           <View style={styles.pickerModal}>
@@ -364,64 +371,75 @@ export default function SignupScreen({ onSignup, onGoLogin }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
-  scroll: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: DS.px, paddingBottom: 40 },
 
   header: { alignItems: 'center', paddingTop: 36, paddingBottom: 20 },
-  logo: { fontSize: 52, marginBottom: 8 },
-  appName: { fontSize: 28, fontWeight: '900', color: DS.text },
+  logoWrap: {
+    width: 56, height: 56, borderRadius: 16,
+    backgroundColor: DS.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+  },
+  appName: { fontSize: 28, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
 
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  stepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E8EAF0' },
+  stepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: DS.border },
   stepDotActive: { backgroundColor: DS.primary, width: 28, borderRadius: 7 },
-  stepLine: { width: 48, height: 2, backgroundColor: '#E8EAF0', marginHorizontal: 8 },
+  stepLine: { width: 48, height: 2, backgroundColor: DS.border, marginHorizontal: 8 },
   stepLabelRow: { flexDirection: 'row', justifyContent: 'center', gap: 72, marginBottom: 20 },
   stepLabel: { fontSize: 12, color: DS.textLight, fontWeight: '600' },
   stepLabelActive: { color: DS.primary },
 
-  form: { backgroundColor: DS.bgSoft, borderRadius: 24, padding: 24, marginBottom: 20 },
+  form: {
+    backgroundColor: DS.surface, borderRadius: DS.radius,
+    padding: 24, marginBottom: 20,
+    ...cardShadow,
+  },
   formTitle: { fontSize: 20, fontWeight: '800', color: DS.text, marginBottom: 20 },
 
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: DS.textSub, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: '600', color: DS.textSub, marginBottom: 6 },
   input: {
     backgroundColor: DS.bg,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     color: DS.text,
     borderWidth: 1,
-    borderColor: '#E8EAF0',
+    borderColor: DS.border,
   },
 
   pickerBtn: {
     backgroundColor: DS.bg,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#E8EAF0',
+    borderColor: DS.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pickerBtnText: { fontSize: 15, color: DS.text },
-  pickerArrow: { fontSize: 20, color: DS.textLight },
 
   btnRow: { flexDirection: 'row', alignItems: 'center' },
   primaryBtn: {
     backgroundColor: DS.primary,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 16,
     alignItems: 'center',
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   secondaryBtn: {
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 16,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: '#E8EAF0',
+    borderWidth: 1,
+    borderColor: DS.border,
+    backgroundColor: DS.surface,
   },
   secondaryBtnText: { color: DS.textSub, fontWeight: '700', fontSize: 15 },
 
@@ -435,16 +453,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickerModalInner: {
-    backgroundColor: DS.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: DS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 40,
   },
   pickerModalTitle: { fontSize: 17, fontWeight: '800', color: DS.text, marginBottom: 12, textAlign: 'center' },
   pickerDoneBtn: {
     backgroundColor: DS.primary,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 16,

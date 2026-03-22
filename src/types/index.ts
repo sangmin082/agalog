@@ -35,6 +35,17 @@ export const RECORD_LABELS: Record<RecordType, string> = {
   vomit: '구토',
 };
 
+// Ionicons icon names for each record type
+export const RECORD_ICON_NAMES: Record<RecordType, string> = {
+  breastfeed: 'heart',
+  bottle: 'water',
+  pump: 'flask',
+  pee: 'water-outline',
+  poop: 'ellipse',
+  vomit: 'alert-circle',
+};
+
+// Keep legacy emoji map for Alert messages only
 export const RECORD_ICONS: Record<RecordType, string> = {
   breastfeed: '🤱',
   bottle: '🍼',
@@ -45,10 +56,10 @@ export const RECORD_ICONS: Record<RecordType, string> = {
 };
 
 export const RECORD_COLORS: Record<RecordType, string> = {
-  breastfeed: '#FF8FAB',
-  bottle: '#74C0FC',
-  pump: '#A9E34B',
-  pee: '#FFD43B',
-  poop: '#A17246',
-  vomit: '#B5A7D5',
+  breastfeed: '#E5484D',
+  bottle: '#3E63DD',
+  pump: '#30A46C',
+  pee: '#F0B429',
+  poop: '#D4875E',
+  vomit: '#8E4EC6',
 };

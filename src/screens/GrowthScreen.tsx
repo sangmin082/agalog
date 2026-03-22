@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { getGrowthEntries, addGrowthEntry, deleteGrowthEntry } from '../storage';
 import { GrowthEntry } from '../types';
-import { DS } from '../theme';
+import { DS, cardShadow } from '../theme';
 
 const W = Dimensions.get('window').width;
 
@@ -23,10 +23,10 @@ function formatDateLong(iso: string) {
 
 type ChartTab = 'weight' | 'height' | 'head';
 
-const CHART_TABS: { key: ChartTab; label: string; unit: string; color: string; bg: string }[] = [
-  { key: 'weight', label: '몸무게', unit: 'kg', color: '#FF6B9D', bg: '#FFF0F5' },
-  { key: 'height', label: '키',     unit: 'cm', color: '#4D9FEC', bg: '#EEF6FF' },
-  { key: 'head',   label: '머리둘레', unit: 'cm', color: '#9B7FE8', bg: '#F5F0FF' },
+const CHART_TABS: { key: ChartTab; label: string; unit: string; color: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'weight', label: '몸무게', unit: 'kg', color: '#E5484D', icon: 'scale-outline' },
+  { key: 'height', label: '키',     unit: 'cm', color: '#3E63DD', icon: 'resize-outline' },
+  { key: 'head',   label: '머리둘레', unit: 'cm', color: '#8E4EC6', icon: 'ellipse-outline' },
 ];
 
 export default function GrowthScreen() {
@@ -59,7 +59,7 @@ export default function GrowthScreen() {
     setWeightKg(''); setHeightCm(''); setHeadCm('');
     setEntryDate(new Date());
     load();
-  }, [weightKg, heightCm, headCm, load]);
+  }, [weightKg, heightCm, headCm, entryDate, load]);
 
   const handleDelete = useCallback((id: string) => {
     Alert.alert('삭제', '이 기록을 삭제할까요?', [
@@ -70,9 +70,8 @@ export default function GrowthScreen() {
 
   const latest = entries[0];
 
-  // Chart data — chronological order (oldest → newest)
   const chartData = useMemo(() => {
-    const sorted = [...entries].reverse(); // oldest first
+    const sorted = [...entries].reverse();
     const maxPoints = 8;
     const slice = sorted.slice(-maxPoints);
     if (slice.length < 2) return null;
@@ -84,12 +83,11 @@ export default function GrowthScreen() {
       return e.headCm ?? 0;
     });
 
-    // Skip if all zeros
     if (values.every((v) => v === 0)) return null;
 
     return {
       labels: slice.map((e) => formatDate(e.date)),
-      datasets: [{ data: values, strokeWidth: 2.5 }],
+      datasets: [{ data: values, strokeWidth: 2 }],
       color: tab.color,
       unit: tab.unit,
     };
@@ -105,7 +103,7 @@ export default function GrowthScreen() {
       strokeWidth: 2,
       decimalPlaces: 1,
       propsForDots: {
-        r: '4',
+        r: '3',
         strokeWidth: '2',
         stroke: tab.color,
         fill: '#FFFFFF',
@@ -126,7 +124,6 @@ export default function GrowthScreen() {
           <Text style={styles.addBtnText}>추가</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.separator} />
 
       <FlatList
         data={entries}
@@ -143,23 +140,23 @@ export default function GrowthScreen() {
                   <Text style={styles.heroDate}>{formatDateLong(latest.date)}</Text>
                   <View style={styles.heroRow}>
                     {latest.weightKg !== undefined && (
-                      <View style={[styles.heroItem, { backgroundColor: '#FFF0F5' }]}>
-                        <Ionicons name="scale-outline" size={22} color="#FF6B9D" />
-                        <Text style={[styles.heroVal, { color: '#FF6B9D' }]}>{latest.weightKg}</Text>
+                      <View style={styles.heroItem}>
+                        <Ionicons name="scale-outline" size={20} color={CHART_TABS[0].color} />
+                        <Text style={[styles.heroVal, { color: CHART_TABS[0].color }]}>{latest.weightKg}</Text>
                         <Text style={styles.heroUnit}>kg</Text>
                       </View>
                     )}
                     {latest.heightCm !== undefined && (
-                      <View style={[styles.heroItem, { backgroundColor: '#EEF6FF' }]}>
-                        <Ionicons name="resize-outline" size={22} color="#4D9FEC" />
-                        <Text style={[styles.heroVal, { color: '#4D9FEC' }]}>{latest.heightCm}</Text>
+                      <View style={styles.heroItem}>
+                        <Ionicons name="resize-outline" size={20} color={CHART_TABS[1].color} />
+                        <Text style={[styles.heroVal, { color: CHART_TABS[1].color }]}>{latest.heightCm}</Text>
                         <Text style={styles.heroUnit}>cm</Text>
                       </View>
                     )}
                     {latest.headCm !== undefined && (
-                      <View style={[styles.heroItem, { backgroundColor: '#F5F0FF' }]}>
-                        <Ionicons name="ellipse-outline" size={22} color="#9B7FE8" />
-                        <Text style={[styles.heroVal, { color: '#9B7FE8' }]}>{latest.headCm}</Text>
+                      <View style={styles.heroItem}>
+                        <Ionicons name="ellipse-outline" size={20} color={CHART_TABS[2].color} />
+                        <Text style={[styles.heroVal, { color: CHART_TABS[2].color }]}>{latest.headCm}</Text>
                         <Text style={styles.heroUnit}>cm</Text>
                       </View>
                     )}
@@ -172,7 +169,6 @@ export default function GrowthScreen() {
             {entries.length >= 2 && (
               <>
                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>성장 곡선</Text>
-                {/* Chart tab switcher */}
                 <View style={styles.chartTabRow}>
                   {CHART_TABS.map((tab) => (
                     <TouchableOpacity
@@ -197,7 +193,7 @@ export default function GrowthScreen() {
                   <View style={styles.chartCard}>
                     <LineChart
                       data={{ labels: chartData.labels, datasets: chartData.datasets }}
-                      width={W - 48}
+                      width={W - 40}
                       height={180}
                       chartConfig={CHART_CONFIG}
                       bezier
@@ -227,7 +223,7 @@ export default function GrowthScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="analytics-outline" size={64} color={DS.textLight} />
+            <Ionicons name="analytics-outline" size={56} color={DS.textLight} />
             <Text style={styles.emptyTitle}>아직 성장 기록이 없어요</Text>
             <Text style={styles.emptyHint}>키, 몸무게, 머리둘레를 기록해보세요</Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={() => setModal(true)}>
@@ -244,21 +240,21 @@ export default function GrowthScreen() {
               <Text style={styles.rowDate}>{formatDateLong(item.date)}</Text>
               <View style={styles.rowChips}>
                 {item.weightKg !== undefined && (
-                  <View style={[styles.rowChip, { backgroundColor: '#FFF0F5' }]}>
-                    <Ionicons name="scale-outline" size={12} color="#FF6B9D" />
-                    <Text style={[styles.rowChipText, { color: '#FF6B9D' }]}> {item.weightKg}kg</Text>
+                  <View style={[styles.rowChip, { backgroundColor: '#FFEFEF' }]}>
+                    <Ionicons name="scale-outline" size={12} color={CHART_TABS[0].color} />
+                    <Text style={[styles.rowChipText, { color: CHART_TABS[0].color }]}> {item.weightKg}kg</Text>
                   </View>
                 )}
                 {item.heightCm !== undefined && (
-                  <View style={[styles.rowChip, { backgroundColor: '#EEF6FF' }]}>
-                    <Ionicons name="resize-outline" size={12} color="#4D9FEC" />
-                    <Text style={[styles.rowChipText, { color: '#4D9FEC' }]}> {item.heightCm}cm</Text>
+                  <View style={[styles.rowChip, { backgroundColor: '#EDF2FE' }]}>
+                    <Ionicons name="resize-outline" size={12} color={CHART_TABS[1].color} />
+                    <Text style={[styles.rowChipText, { color: CHART_TABS[1].color }]}> {item.heightCm}cm</Text>
                   </View>
                 )}
                 {item.headCm !== undefined && (
                   <View style={[styles.rowChip, { backgroundColor: '#F5F0FF' }]}>
-                    <Ionicons name="ellipse-outline" size={12} color="#9B7FE8" />
-                    <Text style={[styles.rowChipText, { color: '#9B7FE8' }]}> {item.headCm}cm</Text>
+                    <Ionicons name="ellipse-outline" size={12} color={CHART_TABS[2].color} />
+                    <Text style={[styles.rowChipText, { color: CHART_TABS[2].color }]}> {item.headCm}cm</Text>
                   </View>
                 )}
               </View>
@@ -276,13 +272,12 @@ export default function GrowthScreen() {
           <View style={styles.overlayTap} onStartShouldSetResponder={() => { setModal(false); return true; }} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.sheet}>
-              <View style={styles.sheetStrip} />
               <View style={styles.sheetHandle} />
               <Text style={styles.sheetTitle}>성장 기록 추가</Text>
 
               <Text style={styles.fieldLabel}>측정 날짜</Text>
               <TouchableOpacity style={styles.fieldRow} onPress={() => setShowDatePicker(true)}>
-                <Ionicons name="calendar-outline" size={20} color={DS.primary} style={{ marginRight: 10 }} />
+                <Ionicons name="calendar-outline" size={18} color={DS.primary} style={{ marginRight: 10 }} />
                 <Text style={[styles.fieldInput, { paddingVertical: 14, color: DS.text }]}>
                   {entryDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                 </Text>
@@ -290,14 +285,14 @@ export default function GrowthScreen() {
               </TouchableOpacity>
 
               {[
-                { label: '몸무게 (kg)', icon: 'scale-outline' as const, color: '#FF6B9D', value: weightKg, setter: setWeightKg, placeholder: '예: 4.5' },
-                { label: '키 (cm)', icon: 'resize-outline' as const, color: '#4D9FEC', value: heightCm, setter: setHeightCm, placeholder: '예: 55.0' },
-                { label: '머리둘레 (cm)', icon: 'ellipse-outline' as const, color: '#9B7FE8', value: headCm, setter: setHeadCm, placeholder: '예: 37.5' },
+                { label: '몸무게 (kg)', icon: 'scale-outline' as const, color: CHART_TABS[0].color, value: weightKg, setter: setWeightKg, placeholder: '예: 4.5' },
+                { label: '키 (cm)', icon: 'resize-outline' as const, color: CHART_TABS[1].color, value: heightCm, setter: setHeightCm, placeholder: '예: 55.0' },
+                { label: '머리둘레 (cm)', icon: 'ellipse-outline' as const, color: CHART_TABS[2].color, value: headCm, setter: setHeadCm, placeholder: '예: 37.5' },
               ].map(({ label, icon, color, value, setter, placeholder }) => (
                 <View key={label}>
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <View style={styles.fieldRow}>
-                    <Ionicons name={icon} size={20} color={color} style={{ marginRight: 10 }} />
+                    <Ionicons name={icon} size={18} color={color} style={{ marginRight: 10 }} />
                     <TextInput
                       style={styles.fieldInput}
                       keyboardType="decimal-pad"
@@ -361,65 +356,69 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
 
   header: {
-    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16,
+    paddingHorizontal: DS.px, paddingTop: 8, paddingBottom: 16,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: DS.text },
+  headerTitle: { fontSize: 32, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: DS.textLight, marginTop: 4 },
   addBtn: {
-    backgroundColor: DS.primary, borderRadius: 14,
+    backgroundColor: DS.primary, borderRadius: DS.radiusSm,
     paddingHorizontal: 14, paddingVertical: 10,
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  separator: { height: 1, backgroundColor: DS.primary + '12', marginHorizontal: 24, marginBottom: 4 },
-
-  list: { paddingHorizontal: 24, paddingBottom: 40 },
+  list: { paddingHorizontal: DS.px, paddingBottom: 40 },
 
   sectionTitle: {
-    fontSize: 13, fontWeight: '700', color: DS.textSub,
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+    fontSize: 11, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12,
   },
 
   // Hero
   heroCard: {
-    backgroundColor: DS.bgSoft, borderRadius: 20, padding: 20, marginBottom: 8,
+    backgroundColor: DS.surface, borderRadius: DS.radius, padding: 20, marginBottom: 8,
+    ...cardShadow,
   },
-  heroDate: { fontSize: 13, color: DS.textSub, marginBottom: 14 },
+  heroDate: { fontSize: 12, color: DS.textSub, marginBottom: 14 },
   heroRow: { flexDirection: 'row', gap: 10 },
   heroItem: {
-    flex: 1, borderRadius: 16, padding: 14, alignItems: 'center', gap: 4,
+    flex: 1, backgroundColor: DS.bg, borderRadius: DS.radiusSm,
+    padding: 14, alignItems: 'center', gap: 4,
   },
-  heroVal: { fontSize: 26, fontWeight: '900' },
+  heroVal: { fontSize: 24, fontWeight: '800' },
   heroUnit: { fontSize: 12, color: DS.textLight },
 
   // Chart
   chartTabRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   chartTabBtn: {
     paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 10, backgroundColor: DS.bgSoft,
+    borderRadius: DS.radiusSm, backgroundColor: DS.surface,
+    borderWidth: 1, borderColor: DS.border,
   },
   chartTabText: { fontSize: 13, fontWeight: '700', color: DS.textSub },
   chartCard: {
-    backgroundColor: DS.bgSoft, borderRadius: 20, padding: 16, marginBottom: 8, overflow: 'hidden',
+    backgroundColor: DS.surface, borderRadius: DS.radius, padding: 16, marginBottom: 8,
+    ...cardShadow,
   },
-  chart: { borderRadius: 12, marginLeft: -10 },
+  chart: { borderRadius: DS.radiusSm, marginLeft: -10 },
   chartUnit: { fontSize: 11, color: DS.textLight, textAlign: 'right', marginTop: 4 },
   chartEmpty: {
-    backgroundColor: DS.bgSoft, borderRadius: 16, padding: 24,
+    backgroundColor: DS.surface, borderRadius: DS.radius, padding: 24,
     alignItems: 'center', marginBottom: 8,
+    ...cardShadow,
   },
   chartEmptyText: { color: DS.textLight, fontSize: 13 },
 
   // List
   row: {
-    backgroundColor: DS.bgSoft, borderRadius: 16,
+    backgroundColor: DS.surface, borderRadius: DS.radius,
     padding: 14, flexDirection: 'row', alignItems: 'center',
     marginBottom: 10,
+    ...cardShadow,
   },
   rowIdx: {
-    width: 32, height: 32, borderRadius: 16,
+    width: 32, height: 32, borderRadius: DS.radius,
     backgroundColor: DS.primaryLight, alignItems: 'center', justifyContent: 'center',
     marginRight: 12,
   },
@@ -428,7 +427,7 @@ const styles = StyleSheet.create({
   rowDate: { fontSize: 13, fontWeight: '700', color: DS.text, marginBottom: 8 },
   rowChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   rowChip: {
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: DS.radiusXs, paddingHorizontal: 8, paddingVertical: 4,
     flexDirection: 'row', alignItems: 'center',
   },
   rowChipText: { fontSize: 12, fontWeight: '600' },
@@ -437,42 +436,40 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyTitle: { fontSize: 18, color: DS.textSub, fontWeight: '700', marginBottom: 8, marginTop: 16 },
   emptyHint: { fontSize: 13, color: DS.textLight, marginBottom: 24, textAlign: 'center' },
-  emptyBtn: { backgroundColor: DS.primary, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 14 },
+  emptyBtn: { backgroundColor: DS.primary, borderRadius: DS.radiusSm, paddingHorizontal: 24, paddingVertical: 14 },
   emptyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   overlayTap: { flex: 1 },
   sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 0, paddingBottom: 44,
-    overflow: 'hidden',
+    backgroundColor: DS.surface,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: DS.px, paddingTop: 0, paddingBottom: 44,
   },
-  sheetStrip: { height: 3, width: '100%', backgroundColor: DS.primary },
   sheetHandle: {
-    width: 48, height: 5, borderRadius: 3,
-    backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 10, marginBottom: 20,
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: DS.border, alignSelf: 'center', marginTop: 10, marginBottom: 20,
   },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: DS.text, marginBottom: 8 },
-  fieldLabel: { fontSize: 13, color: DS.textSub, fontWeight: '600', marginBottom: 6, marginTop: 16 },
+  fieldLabel: { fontSize: 12, color: DS.textSub, fontWeight: '600', marginBottom: 6, marginTop: 16 },
   fieldRow: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14,
-    paddingHorizontal: 14, backgroundColor: DS.bgSoft,
+    borderWidth: 1, borderColor: DS.border, borderRadius: DS.radiusSm,
+    paddingHorizontal: 14, backgroundColor: DS.surface,
   },
-  fieldInput: { flex: 1, fontSize: 17, fontWeight: '600', color: DS.text, paddingVertical: 14 },
-  saveBtn: { marginTop: 28, paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: DS.primary },
-  saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  fieldInput: { flex: 1, fontSize: 16, fontWeight: '600', color: DS.text, paddingVertical: 14 },
+  saveBtn: { marginTop: 28, paddingVertical: 16, borderRadius: DS.radiusSm, alignItems: 'center', backgroundColor: DS.primary },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   cancelBtn: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   cancelBtnText: { color: DS.textSub, fontSize: 15 },
 
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   pickerSheet: {
-    backgroundColor: DS.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: DS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40,
   },
   pickerTitle: { fontSize: 17, fontWeight: '800', color: DS.text, marginBottom: 12, textAlign: 'center' },
-  pickerDoneBtn: { backgroundColor: DS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
+  pickerDoneBtn: { backgroundColor: DS.primary, borderRadius: DS.radiusSm, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
   pickerDoneBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

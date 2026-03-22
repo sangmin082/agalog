@@ -16,9 +16,6 @@ import { DS } from './src/theme';
 
 const Tab = createBottomTabNavigator();
 
-const PRIMARY = '#7C6FF7';
-const INACTIVE = '#C5C9D6';
-
 type TabIconName = 'home' | 'home-outline' | 'list' | 'list-outline' | 'bar-chart' | 'bar-chart-outline' | 'trending-up' | 'trending-up-outline';
 
 function MainApp({ onLogout }: { onLogout: () => void }) {
@@ -29,19 +26,17 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: PRIMARY,
-          tabBarInactiveTintColor: INACTIVE,
+          tabBarActiveTintColor: DS.primary,
+          tabBarInactiveTintColor: DS.textLight,
           tabBarStyle: {
             paddingBottom: 10,
             paddingTop: 8,
             height: 72,
-            backgroundColor: '#FFFFFF',
-            borderTopWidth: 0,
-            shadowColor: '#1A1A2E',
-            shadowOpacity: 0.08,
-            shadowOffset: { width: 0, height: -4 },
-            shadowRadius: 20,
-            elevation: 12,
+            backgroundColor: DS.surface,
+            borderTopWidth: 1,
+            borderTopColor: DS.border,
+            shadowOpacity: 0,
+            elevation: 0,
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 0 },
         }}
@@ -51,7 +46,7 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
           options={{
             title: '홈',
             tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
             ),
           }}
         >
@@ -62,7 +57,7 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
           options={{
             title: '기록',
             tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? 'list' : 'list-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'list' : 'list-outline'} size={22} color={color} />
             ),
           }}
         >
@@ -73,7 +68,7 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
           options={{
             title: '분석',
             tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} size={22} color={color} />
             ),
           }}
         >
@@ -84,7 +79,7 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
           options={{
             title: '성장',
             tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? 'trending-up' : 'trending-up-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'trending-up' : 'trending-up-outline'} size={22} color={color} />
             ),
           }}
         >

@@ -1,34 +1,49 @@
 import { RecordType } from './types';
 
-// ─── Design System ─── Shared tokens for 아가로그
+// ─── Design System ─── Warm modern tokens for 아가로그
 export const DS = {
-  // Base colors
-  bg: '#FFFFFF',
-  bgSoft: '#F8F9FF',
-  primary: '#7C6FF7',
-  primaryLight: '#EEF0FF',
+  // Backgrounds
+  bg: '#FAFAFA',
+  surface: '#FFFFFF',
+
+  // Primary
+  primary: '#5B5BD6',
+  primaryLight: '#EEEEFF',
+
+  // Accent
+  accentWarm: '#F76B6B',
 
   // Text
-  text: '#1A1A2E',
-  textSub: '#6B7280',
-  textLight: '#9CA3AF',
+  text: '#11181C',
+  textSub: '#687076',
+  textLight: '#889096',
 
-  // Radius
-  radius: 20,
-  radiusSm: 14,
+  // Borders
+  border: '#E8EAED',
+
+  // Semantic
+  success: '#30A46C',
+  warning: '#F76B15',
+
+  // Layout
+  px: 20,
+  radius: 16,
+  radiusSm: 12,
+  radiusXs: 8,
 
   // Section header style
-  sectionFontSize: 13,
-  sectionLetterSpacing: 0.8,
+  sectionFontSize: 11,
+  sectionLetterSpacing: 1.2,
 };
 
-export const CARD_THEME: Record<RecordType, { bg: string; accent: string; shadow: string }> = {
-  breastfeed: { bg: '#FFF0F5', accent: '#FF6B9D', shadow: '#FF6B9D' },
-  bottle:     { bg: '#EEF6FF', accent: '#4D9FEC', shadow: '#4D9FEC' },
-  pump:       { bg: '#EDFBEE', accent: '#52C76A', shadow: '#52C76A' },
-  pee:        { bg: '#FFFBEE', accent: '#F0B429', shadow: '#F0B429' },
-  poop:       { bg: '#FEF5EE', accent: '#D4875E', shadow: '#D4875E' },
-  vomit:      { bg: '#F5F0FF', accent: '#9B7FE8', shadow: '#9B7FE8' },
+// Card theme — subtle, white-based cards with tinted accents
+export const CARD_THEME: Record<RecordType, { accent: string; tint: string }> = {
+  breastfeed: { accent: '#E5484D', tint: '#FFEFEF' },
+  bottle:     { accent: '#3E63DD', tint: '#EDF2FE' },
+  pump:       { accent: '#30A46C', tint: '#EDFCF2' },
+  pee:        { accent: '#F0B429', tint: '#FEF9EC' },
+  poop:       { accent: '#D4875E', tint: '#FEF5EE' },
+  vomit:      { accent: '#8E4EC6', tint: '#F5F0FF' },
 };
 
 // Quick-tap types that don't need a modal (just one-tap save)
@@ -57,11 +72,11 @@ export function getRelativeTime(isoString: string): string {
   return `${Math.floor(diffDay / 30)}개월 전`;
 }
 
-// ─── Section header styles (shared) ───
-export const sectionHeaderStyle = {
-  fontSize: DS.sectionFontSize,
-  fontWeight: '700' as const,
-  color: DS.textSub,
-  textTransform: 'uppercase' as const,
-  letterSpacing: DS.sectionLetterSpacing,
+// ─── Shadow presets ───
+export const cardShadow = {
+  shadowColor: '#000',
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 2,
 };

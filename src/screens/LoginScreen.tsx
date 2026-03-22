@@ -4,7 +4,8 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DS } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { DS, cardShadow } from '../theme';
 import { loginWithEmail } from '../storage/auth';
 
 interface Props {
@@ -42,7 +43,9 @@ export default function LoginScreen({ onLogin, onGoSignup }: Props) {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🍼</Text>
+            <View style={styles.logoWrap}>
+              <Ionicons name="heart" size={32} color={DS.primary} />
+            </View>
             <Text style={styles.appName}>아가로그</Text>
             <Text style={styles.tagline}>소중한 아기의 모든 기록</Text>
           </View>
@@ -100,14 +103,14 @@ export default function LoginScreen({ onLogin, onGoSignup }: Props) {
               style={styles.kakaoBtn}
               onPress={() => Alert.alert('카카오 로그인', '카카오 개발자 콘솔에서 앱 키를 등록하면 사용할 수 있어요.\ndevelopers.kakao.com')}
             >
-              <Text style={styles.kakaoBtnText}>🟡 카카오로 계속하기</Text>
+              <Text style={styles.kakaoBtnText}>카카오로 계속하기</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.naverBtn}
               onPress={() => Alert.alert('네이버 로그인', '네이버 개발자 센터에서 앱을 등록하면 사용할 수 있어요.\ndevelopers.naver.com')}
             >
-              <Text style={styles.naverBtnText}>🟢 네이버로 계속하기</Text>
+              <Text style={styles.naverBtnText}>네이버로 계속하기</Text>
             </TouchableOpacity>
           </View>
 
@@ -126,32 +129,41 @@ export default function LoginScreen({ onLogin, onGoSignup }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
-  scroll: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: DS.px, paddingBottom: 40 },
 
   header: { alignItems: 'center', paddingTop: 48, paddingBottom: 32 },
-  logo: { fontSize: 64, marginBottom: 10 },
-  appName: { fontSize: 32, fontWeight: '900', color: DS.text, letterSpacing: -0.5 },
+  logoWrap: {
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: DS.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 16,
+  },
+  appName: { fontSize: 32, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
   tagline: { fontSize: 14, color: DS.textSub, marginTop: 6 },
 
-  form: { backgroundColor: DS.bgSoft, borderRadius: 24, padding: 24, marginBottom: 20 },
-  formTitle: { fontSize: 22, fontWeight: '800', color: DS.text, marginBottom: 20 },
+  form: {
+    backgroundColor: DS.surface, borderRadius: DS.radius,
+    padding: 24, marginBottom: 20,
+    ...cardShadow,
+  },
+  formTitle: { fontSize: 20, fontWeight: '800', color: DS.text, marginBottom: 20 },
 
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: DS.textSub, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: '600', color: DS.textSub, marginBottom: 6 },
   input: {
     backgroundColor: DS.bg,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     color: DS.text,
     borderWidth: 1,
-    borderColor: '#E8EAF0',
+    borderColor: DS.border,
   },
 
   primaryBtn: {
     backgroundColor: DS.primary,
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 4,
@@ -159,12 +171,12 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E8EAF0' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: DS.border },
   dividerText: { marginHorizontal: 12, color: DS.textLight, fontSize: 13 },
 
   kakaoBtn: {
     backgroundColor: '#FEE500',
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 10,
@@ -173,7 +185,7 @@ const styles = StyleSheet.create({
 
   naverBtn: {
     backgroundColor: '#03C75A',
-    borderRadius: 14,
+    borderRadius: DS.radiusSm,
     paddingVertical: 15,
     alignItems: 'center',
   },

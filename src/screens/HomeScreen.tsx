@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Modal, TextInput, Alert, Platform, Animated,
+  Modal, TextInput, Alert, Animated, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { addRecord, getRecords, getBabyBirthday, setBabyBirthday } from '../storage';
-import { RecordType, RecordEntry, RECORD_LABELS, RECORD_ICONS } from '../types';
-import { DS, CARD_THEME, RECORD_TYPES, QUICK_TAP_TYPES, getRelativeTime, sectionHeaderStyle } from '../theme';
+import { RecordType, RecordEntry, RECORD_LABELS, RECORD_ICON_NAMES } from '../types';
+import { DS, CARD_THEME, RECORD_TYPES, QUICK_TAP_TYPES, getRelativeTime, cardShadow } from '../theme';
 
 function nowHHMM() {
   const d = new Date();
@@ -55,6 +56,19 @@ function calcBabyAge(birthday: string): string {
   return 'D+' + diffDays;
 }
 
+const CARD_WIDTH = (Dimensions.get('window').width - DS.px * 2 - 12) / 2;
+
+// Modal field icon mapping
+const MODAL_FIELD_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  time: 'time-outline',
+  left: 'arrow-back-outline',
+  right: 'arrow-forward-outline',
+  bottle: 'water-outline',
+  pump: 'flask-outline',
+  timer: 'timer-outline',
+  note: 'create-outline',
+};
+
 export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => void }) {
   const [modal, setModal] = useState<RecordType | null>(null);
   const [form, setForm] = useState<FormState>({
@@ -80,7 +94,7 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
 
   const lastRecord = useMemo(() => {
     if (records.length === 0) return null;
-    return records[0]; // records are sorted newest first
+    return records[0];
   }, [records]);
 
   const totalToday = useMemo(
@@ -102,7 +116,7 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
     await addRecord(entry);
     onRecordAdded();
     loadData();
-    Alert.alert('기록 완료', `${RECORD_ICONS[type]} ${RECORD_LABELS[type]} 기록됨!`);
+    Alert.alert('기록 완료', `${RECORD_LABELS[type]} 기록됨!`);
   }, [onRecordAdded, loadData]);
 
   const handleCardPress = useCallback((type: RecordType) => {
@@ -120,7 +134,6 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
       return;
     }
 
-    // Flash animation on save button
     Animated.sequence([
       Animated.timing(saveFlash, { toValue: 0.5, duration: 100, useNativeDriver: true }),
       Animated.timing(saveFlash, { toValue: 1, duration: 100, useNativeDriver: true }),
@@ -152,7 +165,6 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
   }, [modal, form, onRecordAdded, loadData, saveFlash]);
 
   const handleSaveBirthday = useCallback(async () => {
-    // Expect YYYY-MM-DD or YYYY.MM.DD
     const cleaned = birthdayInput.replace(/\./g, '-').trim();
     if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(cleaned)) {
       Alert.alert('형식 오류', 'YYYY-MM-DD 형식으로 입력해주세요.\n예: 2026-01-15');
@@ -171,11 +183,10 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>안녕하세요!</Text>
             <Text style={styles.headerTitle}>아가로그</Text>
             <Text style={styles.headerDate}>{getTodayDate()}</Text>
           </View>
-          <View style={styles.countBadgeOuter}>
+          <View style={styles.headerRight}>
             {babyBirthday && (
               <View style={styles.ageBadge}>
                 <Text style={styles.ageText}>{calcBabyAge(babyBirthday)}</Text>
@@ -191,7 +202,10 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
         {/* ── Baby birthday prompt ── */}
         {showBirthdayPrompt && !babyBirthday && (
           <View style={styles.birthdayCard}>
-            <Text style={styles.birthdayTitle}>아기 생일을 입력해주세요</Text>
+            <View style={styles.birthdayTop}>
+              <Ionicons name="calendar-outline" size={20} color={DS.warning} />
+              <Text style={styles.birthdayTitle}>아기 생일을 입력해주세요</Text>
+            </View>
             <Text style={styles.birthdayHint}>일령(D+)을 계산해 드릴게요</Text>
             <View style={styles.birthdayRow}>
               <TextInput
@@ -210,18 +224,15 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
         )}
 
         {/* ── Summary Chips ── */}
-        <View style={styles.chipSection}>
-          <View style={styles.sectionRowChip}>
-            <Text style={styles.sectionTitle}>오늘 요약</Text>
-            <View style={styles.sectionLineChip} />
-          </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>오늘 요약</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
             {RECORD_TYPES.map((type) => {
               const theme = CARD_THEME[type];
               const count = todayCounts[type] ?? 0;
               return (
-                <View key={type} style={[styles.chip, { backgroundColor: theme.bg, borderColor: count > 0 ? theme.accent : 'transparent' }]}>
-                  <Text style={styles.chipIcon}>{RECORD_ICONS[type]}</Text>
+                <View key={type} style={[styles.chip, count > 0 && { borderColor: theme.accent }]}>
+                  <Ionicons name={RECORD_ICON_NAMES[type] as keyof typeof Ionicons.glyphMap} size={18} color={theme.accent} />
                   <Text style={[styles.chipCount, { color: theme.accent }]}>{count}</Text>
                   <Text style={styles.chipLabel}>{RECORD_LABELS[type]}</Text>
                 </View>
@@ -231,15 +242,18 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
         </View>
 
         {/* ── Last Record ── */}
-        <View style={styles.lastRecordSection}>
-          <View style={styles.sectionRowChip}>
-            <Text style={styles.sectionTitle}>마지막 기록</Text>
-            <View style={styles.sectionLineChip} />
-          </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>마지막 기록</Text>
           <View style={styles.lastRecordCard}>
             {lastRecord ? (
               <View style={styles.lastRecordInner}>
-                <Text style={styles.lastRecordIcon}>{RECORD_ICONS[lastRecord.type]}</Text>
+                <View style={[styles.lastRecordIconWrap, { backgroundColor: CARD_THEME[lastRecord.type].tint }]}>
+                  <Ionicons
+                    name={RECORD_ICON_NAMES[lastRecord.type] as keyof typeof Ionicons.glyphMap}
+                    size={20}
+                    color={CARD_THEME[lastRecord.type].accent}
+                  />
+                </View>
                 <View style={styles.lastRecordTextWrap}>
                   <Text style={styles.lastRecordType}>{RECORD_LABELS[lastRecord.type]}</Text>
                   <Text style={styles.lastRecordTime}>{getRelativeTime(lastRecord.startTime)}</Text>
@@ -251,41 +265,38 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
           </View>
         </View>
 
-        {/* ── Separator ── */}
-        <View style={styles.separator} />
+        {/* ── Divider ── */}
+        <View style={styles.divider} />
 
         {/* ── Record Grid ── */}
-        <View style={styles.sectionRow}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>기록하기</Text>
-          <View style={styles.sectionLine} />
-        </View>
-        <View style={styles.grid}>
-          {RECORD_TYPES.map((type) => {
-            const theme = CARD_THEME[type];
-            const count = todayCounts[type] ?? 0;
-            const isQuick = QUICK_TAP_TYPES.includes(type);
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[styles.card, {
-                  backgroundColor: theme.bg,
-                  shadowColor: theme.shadow,
-                }]}
-                onPress={() => handleCardPress(type)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.cardAccent, { backgroundColor: theme.accent + '30' }]} />
-                {count > 0 && (
-                  <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-                    <Text style={styles.badgeText}>{count}</Text>
+          <View style={styles.grid}>
+            {RECORD_TYPES.map((type) => {
+              const theme = CARD_THEME[type];
+              const count = todayCounts[type] ?? 0;
+              const isQuick = QUICK_TAP_TYPES.includes(type);
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={styles.card}
+                  onPress={() => handleCardPress(type)}
+                  activeOpacity={0.7}
+                >
+                  {count > 0 && (
+                    <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                      <Text style={styles.badgeText}>{count}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.cardIconWrap, { backgroundColor: theme.tint }]}>
+                    <Ionicons name={RECORD_ICON_NAMES[type] as keyof typeof Ionicons.glyphMap} size={24} color={theme.accent} />
                   </View>
-                )}
-                <Text style={styles.cardIcon}>{RECORD_ICONS[type]}</Text>
-                <Text style={[styles.cardLabel, { color: theme.accent }]}>{RECORD_LABELS[type]}</Text>
-                {isQuick && <Text style={styles.quickLabel}>탭하면 바로 기록</Text>}
-              </TouchableOpacity>
-            );
-          })}
+                  <Text style={[styles.cardLabel, { color: DS.text }]}>{RECORD_LABELS[type]}</Text>
+                  {isQuick && <Text style={styles.quickLabel}>탭하면 바로 기록</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
 
@@ -297,18 +308,18 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
             <View style={styles.sheet}>
               {modal && (
                 <>
-                  {/* Colored top strip */}
-                  <View style={[styles.sheetStrip, { backgroundColor: CARD_THEME[modal].accent }]} />
                   <View style={styles.sheetHandle} />
                   <View style={styles.sheetHeader}>
-                    <Text style={styles.sheetEmoji}>{RECORD_ICONS[modal]}</Text>
+                    <View style={[styles.sheetIconWrap, { backgroundColor: CARD_THEME[modal].tint }]}>
+                      <Ionicons name={RECORD_ICON_NAMES[modal] as keyof typeof Ionicons.glyphMap} size={22} color={CARD_THEME[modal].accent} />
+                    </View>
                     <Text style={styles.sheetTitle}>{RECORD_LABELS[modal]} 기록</Text>
                   </View>
 
                   {/* Time */}
                   <Text style={styles.fieldLabel}>시간</Text>
-                  <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                    <Text style={styles.fieldPrefix}>🕐</Text>
+                  <View style={styles.fieldRow}>
+                    <Ionicons name={MODAL_FIELD_ICONS.time} size={18} color={DS.textSub} style={styles.fieldIcon} />
                     <TextInput
                       style={styles.fieldInput}
                       keyboardType="numbers-and-punctuation"
@@ -323,16 +334,16 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                     <View style={styles.row2}>
                       <View style={styles.half}>
                         <Text style={styles.fieldLabel}>왼쪽 (분)</Text>
-                        <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                          <Text style={styles.fieldPrefix}>⬅️</Text>
+                        <View style={styles.fieldRow}>
+                          <Ionicons name={MODAL_FIELD_ICONS.left} size={18} color={DS.textSub} style={styles.fieldIcon} />
                           <TextInput style={styles.fieldInput} keyboardType="numeric" placeholder="0" placeholderTextColor={DS.textLight}
                             value={form.leftMinutes} onChangeText={(v) => setForm((f) => ({ ...f, leftMinutes: v }))} />
                         </View>
                       </View>
                       <View style={styles.half}>
                         <Text style={styles.fieldLabel}>오른쪽 (분)</Text>
-                        <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                          <Text style={styles.fieldPrefix}>➡️</Text>
+                        <View style={styles.fieldRow}>
+                          <Ionicons name={MODAL_FIELD_ICONS.right} size={18} color={DS.textSub} style={styles.fieldIcon} />
                           <TextInput style={styles.fieldInput} keyboardType="numeric" placeholder="0" placeholderTextColor={DS.textLight}
                             value={form.rightMinutes} onChangeText={(v) => setForm((f) => ({ ...f, rightMinutes: v }))} />
                         </View>
@@ -343,8 +354,8 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                   {modal === 'bottle' && (
                     <>
                       <Text style={styles.fieldLabel}>수유량 (ml)</Text>
-                      <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                        <Text style={styles.fieldPrefix}>🍼</Text>
+                      <View style={styles.fieldRow}>
+                        <Ionicons name={MODAL_FIELD_ICONS.bottle} size={18} color={DS.textSub} style={styles.fieldIcon} />
                         <TextInput style={styles.fieldInput} keyboardType="numeric" placeholder="0" placeholderTextColor={DS.textLight}
                           value={form.amountMl} onChangeText={(v) => setForm((f) => ({ ...f, amountMl: v }))} />
                       </View>
@@ -355,16 +366,16 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                     <View style={styles.row2}>
                       <View style={styles.half}>
                         <Text style={styles.fieldLabel}>유축량 (ml)</Text>
-                        <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                          <Text style={styles.fieldPrefix}>🏺</Text>
+                        <View style={styles.fieldRow}>
+                          <Ionicons name={MODAL_FIELD_ICONS.pump} size={18} color={DS.textSub} style={styles.fieldIcon} />
                           <TextInput style={styles.fieldInput} keyboardType="numeric" placeholder="0" placeholderTextColor={DS.textLight}
                             value={form.amountMl} onChangeText={(v) => setForm((f) => ({ ...f, amountMl: v }))} />
                         </View>
                       </View>
                       <View style={styles.half}>
                         <Text style={styles.fieldLabel}>시간 (분)</Text>
-                        <View style={[styles.fieldRow, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                          <Text style={styles.fieldPrefix}>⏱️</Text>
+                        <View style={styles.fieldRow}>
+                          <Ionicons name={MODAL_FIELD_ICONS.timer} size={18} color={DS.textSub} style={styles.fieldIcon} />
                           <TextInput style={styles.fieldInput} keyboardType="numeric" placeholder="0" placeholderTextColor={DS.textLight}
                             value={form.pumpDuration} onChangeText={(v) => setForm((f) => ({ ...f, pumpDuration: v }))} />
                         </View>
@@ -373,8 +384,8 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                   )}
 
                   <Text style={styles.fieldLabel}>메모 (선택)</Text>
-                  <View style={[styles.fieldRow, styles.fieldRowNote, { borderColor: CARD_THEME[modal].accent + '40' }]}>
-                    <Text style={[styles.fieldPrefix, { alignSelf: 'flex-start', marginTop: 12 }]}>✏️</Text>
+                  <View style={[styles.fieldRow, styles.fieldRowNote]}>
+                    <Ionicons name={MODAL_FIELD_ICONS.note} size={18} color={DS.textSub} style={[styles.fieldIcon, { alignSelf: 'flex-start', marginTop: 14 }]} />
                     <TextInput
                       style={[styles.fieldInput, { height: 72, textAlignVertical: 'top' }]}
                       placeholder="특이사항 입력"
@@ -387,7 +398,7 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
 
                   <Animated.View style={{ opacity: saveFlash }}>
                     <TouchableOpacity
-                      style={[styles.saveBtn, { backgroundColor: CARD_THEME[modal].accent }]}
+                      style={styles.saveBtn}
                       onPress={handleSave}
                       activeOpacity={0.85}
                     >
@@ -416,124 +427,112 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: DS.px,
     paddingTop: 12,
     paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: DS.primary + '12',
-    marginBottom: 4,
   },
   headerLeft: {},
-  greeting: { fontSize: 14, color: DS.textSub, fontWeight: '500', marginBottom: 4 },
-  headerTitle: { fontSize: 26, fontWeight: '900', color: DS.text, letterSpacing: -0.3 },
-  headerDate: { fontSize: 13, color: DS.textLight, marginTop: 6 },
-  countBadgeOuter: { alignItems: 'center' },
+  headerTitle: { fontSize: 32, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
+  headerDate: { fontSize: 13, color: DS.textLight, marginTop: 4 },
+  headerRight: { alignItems: 'center' },
   ageBadge: {
     backgroundColor: DS.primaryLight,
-    borderRadius: 10,
+    borderRadius: DS.radiusXs,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginBottom: 6,
   },
-  ageText: { fontSize: 13, fontWeight: '800', color: DS.primary },
+  ageText: { fontSize: 12, fontWeight: '700', color: DS.primary },
   countBadge: {
-    width: 52, height: 52, borderRadius: 16,
+    width: 48, height: 48, borderRadius: DS.radius,
     backgroundColor: DS.primary,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: DS.primary, shadowOpacity: 0.3, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
-  countNum: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', lineHeight: 26 },
-  countLabel: { fontSize: 10, color: DS.textSub, fontWeight: '600', marginTop: 4 },
+  countNum: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
+  countLabel: { fontSize: 10, color: DS.textSub, fontWeight: '500', marginTop: 4 },
 
   // ── Birthday prompt ──
   birthdayCard: {
-    marginHorizontal: 24, marginTop: 12, marginBottom: 8,
-    backgroundColor: '#FFFBEE', borderRadius: 16,
-    padding: 16, borderWidth: 1, borderColor: '#F0B42930',
+    marginHorizontal: DS.px, marginTop: 8, marginBottom: 8,
+    backgroundColor: DS.surface, borderRadius: DS.radius,
+    padding: 16,
+    ...cardShadow,
   },
-  birthdayTitle: { fontSize: 15, fontWeight: '700', color: DS.text, marginBottom: 4 },
-  birthdayHint: { fontSize: 12, color: DS.textSub, marginBottom: 12 },
+  birthdayTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  birthdayTitle: { fontSize: 15, fontWeight: '700', color: DS.text },
+  birthdayHint: { fontSize: 12, color: DS.textSub, marginBottom: 12, marginLeft: 28 },
   birthdayRow: { flexDirection: 'row', gap: 8 },
   birthdayInput: {
-    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
+    flex: 1, backgroundColor: DS.bg, borderRadius: DS.radiusSm,
+    paddingHorizontal: 14, paddingVertical: 10,
     fontSize: 15, fontWeight: '600', color: DS.text,
-    borderWidth: 1, borderColor: '#E5E7EB',
+    borderWidth: 1, borderColor: DS.border,
   },
   birthdaySaveBtn: {
-    backgroundColor: DS.primary, borderRadius: 10,
+    backgroundColor: DS.primary, borderRadius: DS.radiusSm,
     paddingHorizontal: 18, justifyContent: 'center',
   },
   birthdaySaveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 
-  // ── Chips ──
-  chipSection: { marginBottom: 8, marginTop: 4 },
-  sectionRowChip: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 12, gap: 12,
-  },
-  sectionLineChip: {
-    flex: 1, height: 1, backgroundColor: DS.primary + '15',
-  },
+  // ── Sections ──
+  section: { marginBottom: 8 },
   sectionTitle: {
-    fontSize: 13, fontWeight: '700', color: DS.textSub,
-    textTransform: 'uppercase', letterSpacing: 0.8,
+    fontSize: 11, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 1.2,
+    paddingHorizontal: DS.px, marginBottom: 10, marginTop: 8,
   },
-  chipScroll: { paddingLeft: 24, paddingRight: 12, gap: 10 },
+
+  // ── Chips ──
+  chipScroll: { paddingLeft: DS.px, paddingRight: 12, gap: 8 },
   chip: {
-    borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10,
-    alignItems: 'center', borderWidth: 1.5, minWidth: 68,
-    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6,
-    shadowOffset: { width: 0, height: 1 }, elevation: 1,
+    backgroundColor: DS.surface,
+    borderRadius: DS.radiusSm, paddingHorizontal: 14, paddingVertical: 10,
+    alignItems: 'center', borderWidth: 1.5, borderColor: DS.border,
+    minWidth: 68,
+    ...cardShadow,
   },
-  chipIcon: { fontSize: 20, marginBottom: 3 },
-  chipCount: { fontSize: 20, fontWeight: '900', lineHeight: 24 },
-  chipLabel: { fontSize: 10, color: DS.textSub, fontWeight: '600', marginTop: 2 },
+  chipCount: { fontSize: 18, fontWeight: '800', marginTop: 2 },
+  chipLabel: { fontSize: 10, color: DS.textSub, fontWeight: '500', marginTop: 2 },
 
   // ── Last Record ──
-  lastRecordSection: { marginBottom: 8 },
   lastRecordCard: {
-    marginHorizontal: 24,
-    backgroundColor: DS.bgSoft, borderRadius: 14,
+    marginHorizontal: DS.px,
+    backgroundColor: DS.surface, borderRadius: DS.radius,
     padding: 14,
+    ...cardShadow,
   },
   lastRecordInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  lastRecordIcon: { fontSize: 28 },
+  lastRecordIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
   lastRecordTextWrap: {},
   lastRecordType: { fontSize: 15, fontWeight: '700', color: DS.text },
   lastRecordTime: { fontSize: 13, color: DS.textSub, marginTop: 2 },
   lastRecordEmpty: { fontSize: 14, color: DS.textLight, textAlign: 'center' },
 
-  // ── Separator ──
-  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginVertical: 12 },
+  // ── Divider ──
+  divider: { height: 1, backgroundColor: DS.border, marginHorizontal: DS.px, marginVertical: 12 },
 
   // ── Grid ──
-  sectionRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 14, gap: 12,
-  },
-  sectionLine: {
-    flex: 1, height: 1, backgroundColor: DS.primary + '15',
-  },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    justifyContent: 'space-between', paddingHorizontal: 24,
+    justifyContent: 'space-between', paddingHorizontal: DS.px,
   },
   card: {
-    width: 165, height: 120, borderRadius: DS.radius,
+    width: CARD_WIDTH, borderRadius: DS.radius,
+    backgroundColor: DS.surface,
     alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 20,
     position: 'relative', marginBottom: 12,
-    shadowOpacity: 0.15, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    ...cardShadow,
   },
-  cardIcon: { fontSize: 38 },
-  cardAccent: {
-    position: 'absolute', top: 0, left: 20, right: 20,
-    height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3,
+  cardIconWrap: {
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
-  cardLabel: { fontWeight: '800', fontSize: 14, marginTop: 8, letterSpacing: 0.3 },
-  quickLabel: { fontSize: 9, color: DS.textLight, marginTop: 2 },
+  cardLabel: { fontWeight: '700', fontSize: 14 },
+  quickLabel: { fontSize: 10, color: DS.textLight, marginTop: 2 },
   badge: {
     position: 'absolute', top: 10, right: 10,
     width: 22, height: 22, borderRadius: 11,
@@ -546,39 +545,39 @@ const styles = StyleSheet.create({
   overlayTap: { flex: 1 },
   sheetScroll: {},
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 0, paddingBottom: 44,
-    overflow: 'hidden',
-  },
-  sheetStrip: {
-    height: 3, width: '100%',
+    backgroundColor: DS.surface,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: DS.px, paddingTop: 0, paddingBottom: 44,
   },
   sheetHandle: {
-    width: 48, height: 5, borderRadius: 3,
-    backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 10, marginBottom: 20,
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: DS.border, alignSelf: 'center', marginTop: 10, marginBottom: 20,
   },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 },
-  sheetEmoji: { fontSize: 28 },
-  sheetTitle: { fontSize: 22, fontWeight: '800', color: DS.text },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
+  sheetIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: DS.text },
 
-  fieldLabel: { fontSize: 13, color: DS.textSub, fontWeight: '600', marginBottom: 6, marginTop: 16 },
+  fieldLabel: { fontSize: 12, color: DS.textSub, fontWeight: '600', marginBottom: 6, marginTop: 16 },
   fieldRow: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderRadius: DS.radiusSm,
-    paddingHorizontal: 14, backgroundColor: DS.bgSoft,
+    borderWidth: 1, borderColor: DS.border, borderRadius: DS.radiusSm,
+    paddingHorizontal: 14, backgroundColor: DS.surface,
   },
   fieldRowNote: { alignItems: 'flex-start' },
-  fieldPrefix: { fontSize: 18, marginRight: 10 },
-  fieldInput: { flex: 1, fontSize: 17, fontWeight: '600', color: DS.text, paddingVertical: 14 },
+  fieldIcon: { marginRight: 10 },
+  fieldInput: { flex: 1, fontSize: 16, fontWeight: '600', color: DS.text, paddingVertical: 14 },
 
   row2: { flexDirection: 'row', gap: 12 },
   half: { flex: 1 },
 
   saveBtn: {
-    marginTop: 28, paddingVertical: 16, borderRadius: 16, alignItems: 'center',
+    marginTop: 28, paddingVertical: 16, borderRadius: DS.radiusSm,
+    alignItems: 'center', backgroundColor: DS.primary,
   },
-  saveBtnText: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
+  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   cancelBtn: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   cancelBtnText: { color: DS.textSub, fontSize: 15, fontWeight: '500' },
 });

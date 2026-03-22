@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { getRecords } from '../storage';
-import { RecordEntry, RecordType, RECORD_ICONS, RECORD_LABELS } from '../types';
-import { DS, CARD_THEME } from '../theme';
+import { RecordEntry, RecordType, RECORD_ICON_NAMES, RECORD_LABELS } from '../types';
+import { DS, CARD_THEME, cardShadow } from '../theme';
 
-const W = Dimensions.get('window').width - 48;
+const W = Dimensions.get('window').width - 40;
 
 const CHART_BASE = {
   backgroundGradientFrom: '#FFFFFF',
-  backgroundGradientTo: '#FAFAFF',
-  color: (opacity = 1) => `rgba(124, 111, 247, ${opacity})`,
-  labelColor: () => '#9CA3AF',
-  strokeWidth: 2.5,
-  propsForDots: { r: '4', strokeWidth: '2', stroke: '#7C6FF7' },
-  propsForBackgroundLines: { stroke: '#F0F1FF', strokeWidth: 1 },
+  backgroundGradientTo: '#FFFFFF',
+  color: (opacity = 1) => `rgba(91, 91, 214, ${opacity})`,
+  labelColor: () => DS.textLight,
+  strokeWidth: 2,
+  propsForDots: { r: '3', strokeWidth: '2', stroke: '#5B5BD6' },
+  propsForBackgroundLines: { stroke: '#F0F0F0', strokeWidth: 1 },
   decimalPlaces: 0,
 };
 
@@ -93,7 +94,6 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
     [todayRecords]
   );
 
-  // Last 24h records for timeline strip
   const last24hRecords = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return records
@@ -113,10 +113,10 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
   const hasData = records.length > 0;
 
   const summaryItems = useMemo(() => [
-    { icon: '🤱', label: '모유수유', val: `${todayRecords.filter(r => r.type === 'breastfeed').length}회`, sub: totalBreastfeedMin > 0 ? `${totalBreastfeedMin}분` : null, accent: '#FF6B9D', bg: '#FFF0F5' },
-    { icon: '🍼', label: '수유', val: `${todayRecords.filter(r => r.type === 'bottle').length}회`, sub: totalBottleMl > 0 ? `${totalBottleMl}ml` : null, accent: '#4D9FEC', bg: '#EEF6FF' },
-    { icon: '💛', label: '소변', val: `${todayRecords.filter(r => r.type === 'pee').length}회`, sub: null, accent: '#F0B429', bg: '#FFFBEE' },
-    { icon: '💩', label: '대변', val: `${todayRecords.filter(r => r.type === 'poop').length}회`, sub: null, accent: '#D4875E', bg: '#FEF5EE' },
+    { icon: 'heart' as const, label: '모유수유', val: `${todayRecords.filter(r => r.type === 'breastfeed').length}회`, sub: totalBreastfeedMin > 0 ? `${totalBreastfeedMin}분` : null, accent: CARD_THEME.breastfeed.accent, tint: CARD_THEME.breastfeed.tint },
+    { icon: 'water' as const, label: '수유', val: `${todayRecords.filter(r => r.type === 'bottle').length}회`, sub: totalBottleMl > 0 ? `${totalBottleMl}ml` : null, accent: CARD_THEME.bottle.accent, tint: CARD_THEME.bottle.tint },
+    { icon: 'water-outline' as const, label: '소변', val: `${todayRecords.filter(r => r.type === 'pee').length}회`, sub: null, accent: CARD_THEME.pee.accent, tint: CARD_THEME.pee.tint },
+    { icon: 'ellipse' as const, label: '대변', val: `${todayRecords.filter(r => r.type === 'poop').length}회`, sub: null, accent: CARD_THEME.poop.accent, tint: CARD_THEME.poop.tint },
   ], [todayRecords, totalBreastfeedMin, totalBottleMl]);
 
   const handleTabDaily = useCallback(() => setTab('daily'), []);
@@ -131,22 +131,20 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
           <Text style={styles.headerSub}>아가의 하루를 한눈에</Text>
         </View>
 
-        {/* Separator */}
-        <View style={styles.separator} />
-
         {/* ── Last 24h Timeline ── */}
         {last24hRecords.length > 0 && (
           <View style={styles.timelineSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>최근 24시간</Text>
-              <View style={styles.sectionLine} />
-            </View>
+            <Text style={styles.sectionTitle}>최근 24시간</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timelineScroll}>
               {last24hRecords.map((r) => {
                 const theme = CARD_THEME[r.type];
                 return (
-                  <View key={r.id} style={[styles.timelineBadge, { backgroundColor: theme?.bg ?? DS.bgSoft }]}>
-                    <Text style={styles.timelineBadgeEmoji}>{RECORD_ICONS[r.type]}</Text>
+                  <View key={r.id} style={[styles.timelineBadge, { backgroundColor: theme?.tint ?? DS.bg }]}>
+                    <Ionicons
+                      name={RECORD_ICON_NAMES[r.type] as keyof typeof Ionicons.glyphMap}
+                      size={16}
+                      color={theme?.accent ?? DS.textSub}
+                    />
                     <Text style={[styles.timelineBadgeTime, { color: theme?.accent ?? DS.textSub }]}>
                       {formatHHMM(r.startTime)}
                     </Text>
@@ -157,18 +155,17 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
           </View>
         )}
 
-        {/* Separator */}
-        <View style={styles.separator} />
+        {/* Divider */}
+        <View style={styles.divider} />
 
         {/* Section: Today summary */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>오늘 요약</Text>
-          <View style={styles.sectionLine} />
-        </View>
+        <Text style={styles.sectionTitle}>오늘 요약</Text>
         <View style={styles.summaryGrid}>
           {summaryItems.map((item) => (
-            <View key={item.label} style={[styles.summaryCard, { backgroundColor: item.bg }]}>
-              <Text style={styles.summaryIcon}>{item.icon}</Text>
+            <View key={item.label} style={styles.summaryCard}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: item.tint }]}>
+                <Ionicons name={item.icon} size={20} color={item.accent} />
+              </View>
               <Text style={[styles.summaryVal, { color: item.accent }]}>{item.val}</Text>
               <Text style={styles.summaryKey}>{item.label}</Text>
               {item.sub && <Text style={[styles.summarySub, { color: item.accent }]}>{item.sub}</Text>}
@@ -178,18 +175,16 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
 
         {totalPumpMl > 0 && (
           <View style={styles.pumpBanner}>
-            <Text style={styles.pumpText}>🏺 오늘 유축 총 {totalPumpMl}ml</Text>
+            <Ionicons name="flask" size={16} color={DS.success} />
+            <Text style={styles.pumpText}>오늘 유축 총 {totalPumpMl}ml</Text>
           </View>
         )}
 
-        {/* Separator */}
-        <View style={styles.separator} />
+        {/* Divider */}
+        <View style={styles.divider} />
 
         {/* Section: Charts */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>차트</Text>
-          <View style={styles.sectionLine} />
-        </View>
+        <Text style={styles.sectionTitle}>차트</Text>
 
         {/* Tab switcher */}
         <View style={styles.tabs}>
@@ -203,7 +198,7 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
 
         {!hasData ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📊</Text>
+            <Ionicons name="analytics-outline" size={56} color={DS.textLight} />
             <Text style={styles.emptyText}>기록을 추가하면{'\n'}그래프가 나타나요!</Text>
           </View>
         ) : tab === 'daily' ? (
@@ -212,9 +207,9 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
               <View style={styles.chartHeader}>
                 <Text style={styles.chartTitle}>수유 횟수</Text>
                 <View style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: '#FF6B9D' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: CARD_THEME.breastfeed.accent }]} />
                   <Text style={styles.legendLabel}>모유</Text>
-                  <View style={[styles.legendDot, { backgroundColor: '#4D9FEC' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: CARD_THEME.bottle.accent }]} />
                   <Text style={styles.legendLabel}>수유</Text>
                 </View>
               </View>
@@ -222,8 +217,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                 data={{
                   labels,
                   datasets: [
-                    { data: breastfeedCounts.every(v => v === 0) ? [0] : breastfeedCounts, color: () => '#FF6B9D', strokeWidth: 2.5 },
-                    { data: bottleCounts.every(v => v === 0) ? [0] : bottleCounts, color: () => '#4D9FEC', strokeWidth: 2.5 },
+                    { data: breastfeedCounts.every(v => v === 0) ? [0] : breastfeedCounts, color: () => CARD_THEME.breastfeed.accent, strokeWidth: 2 },
+                    { data: bottleCounts.every(v => v === 0) ? [0] : bottleCounts, color: () => CARD_THEME.bottle.accent, strokeWidth: 2 },
                   ],
                   legend: [],
                 }}
@@ -248,7 +243,7 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                 <BarChart
                   data={{ labels, datasets: [{ data: pumpMl }] }}
                   width={W} height={180}
-                  chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(82, 199, 106, ${o})` }}
+                  chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(48, 164, 108, ${o})` }}
                   style={styles.chart} yAxisLabel="" yAxisSuffix="ml"
                 />
               </View>
@@ -264,18 +259,15 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
               <BarChart
                 data={{ labels: hourlyLabels, datasets: [{ data: hourlyData.every(v => v === 0) ? [0] : hourlyData }] }}
                 width={W} height={200}
-                chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(255, 107, 157, ${o})` }}
+                chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(229, 72, 77, ${o})` }}
                 style={styles.chart} yAxisLabel="" yAxisSuffix="회"
               />
             </View>
 
-            {/* Separator */}
-            <View style={styles.separator} />
+            {/* Divider */}
+            <View style={styles.divider} />
 
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>인사이트</Text>
-              <View style={styles.sectionLine} />
-            </View>
+            <Text style={styles.sectionTitle}>인사이트</Text>
 
             <View style={styles.insightBox}>
               {(() => {
@@ -287,8 +279,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                   <View style={styles.insightItems}>
                     {Math.max(...hourlyData) > 0 && (
                       <View style={styles.insightItem}>
-                        <View style={[styles.insightIcon, { backgroundColor: '#FFF0F5' }]}>
-                          <Text style={styles.insightIconText}>⏰</Text>
+                        <View style={[styles.insightIcon, { backgroundColor: CARD_THEME.breastfeed.tint }]}>
+                          <Ionicons name="time-outline" size={20} color={CARD_THEME.breastfeed.accent} />
                         </View>
                         <View style={styles.insightContent}>
                           <Text style={styles.insightLabel}>가장 많은 수유 시간대</Text>
@@ -297,8 +289,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                       </View>
                     )}
                     <View style={styles.insightItem}>
-                      <View style={[styles.insightIcon, { backgroundColor: '#EEF6FF' }]}>
-                        <Text style={styles.insightIconText}>📈</Text>
+                      <View style={[styles.insightIcon, { backgroundColor: CARD_THEME.bottle.tint }]}>
+                        <Ionicons name="trending-up-outline" size={20} color={CARD_THEME.bottle.accent} />
                       </View>
                       <View style={styles.insightContent}>
                         <Text style={styles.insightLabel}>하루 평균 수유</Text>
@@ -306,8 +298,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                       </View>
                     </View>
                     <View style={styles.insightItem}>
-                      <View style={[styles.insightIcon, { backgroundColor: '#EDFBEE' }]}>
-                        <Text style={styles.insightIconText}>📝</Text>
+                      <View style={[styles.insightIcon, { backgroundColor: CARD_THEME.pump.tint }]}>
+                        <Ionicons name="document-text-outline" size={20} color={CARD_THEME.pump.accent} />
                       </View>
                       <View style={styles.insightContent}>
                         <Text style={styles.insightLabel}>총 기록</Text>
@@ -330,91 +322,91 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 40 },
 
   header: {
-    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20,
+    paddingHorizontal: DS.px, paddingTop: 8, paddingBottom: 16,
   },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: DS.text },
+  headerTitle: { fontSize: 32, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: DS.textLight, marginTop: 4 },
 
-  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginVertical: 8 },
+  divider: { height: 1, backgroundColor: DS.border, marginHorizontal: DS.px, marginVertical: 12 },
 
-  // ── Section headers (consistent) ──
-  sectionHeaderRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 12, marginTop: 8, gap: 12,
-  },
+  // ── Section headers ──
   sectionTitle: {
-    fontSize: 13, fontWeight: '700', color: DS.textSub,
-    textTransform: 'uppercase', letterSpacing: 0.8,
-  },
-  sectionLine: {
-    flex: 1, height: 1, backgroundColor: DS.primary + '15',
+    fontSize: 11, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 1.2,
+    paddingHorizontal: DS.px, marginBottom: 10, marginTop: 4,
   },
 
   // ── 24h Timeline ──
   timelineSection: { marginBottom: 4 },
-  timelineScroll: { paddingLeft: 24, paddingRight: 12, gap: 8, paddingBottom: 4 },
+  timelineScroll: { paddingLeft: DS.px, paddingRight: 12, gap: 8, paddingBottom: 4 },
   timelineBadge: {
-    borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: DS.radiusSm, paddingHorizontal: 10, paddingVertical: 6,
     alignItems: 'center', minWidth: 52,
   },
-  timelineBadgeEmoji: { fontSize: 18, marginBottom: 2 },
-  timelineBadgeTime: { fontSize: 10, fontWeight: '700' },
+  timelineBadgeTime: { fontSize: 10, fontWeight: '700', marginTop: 2 },
 
   // ── Summary ──
   summaryGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    gap: 10, paddingHorizontal: 24, marginBottom: 16,
+    gap: 10, paddingHorizontal: DS.px, marginBottom: 16,
   },
   summaryCard: {
-    flex: 1, minWidth: '44%', borderRadius: 16,
+    flex: 1, minWidth: '44%',
+    backgroundColor: DS.surface, borderRadius: DS.radius,
     padding: 16, alignItems: 'center',
+    ...cardShadow,
   },
-  summaryIcon: { fontSize: 26, marginBottom: 8 },
-  summaryVal: { fontSize: 26, fontWeight: '900' },
-  summaryKey: { fontSize: 12, color: DS.textSub, marginTop: 4, fontWeight: '600' },
+  summaryIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  summaryVal: { fontSize: 24, fontWeight: '800' },
+  summaryKey: { fontSize: 12, color: DS.textSub, marginTop: 4, fontWeight: '500' },
   summarySub: { fontSize: 13, fontWeight: '700', marginTop: 4 },
 
   pumpBanner: {
-    backgroundColor: '#EDFBEE', borderRadius: 12,
-    padding: 12, marginHorizontal: 24, marginBottom: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: '#52C76A30',
+    backgroundColor: DS.surface, borderRadius: DS.radiusSm,
+    padding: 12, marginHorizontal: DS.px, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderWidth: 1, borderColor: DS.border,
   },
-  pumpText: { fontSize: 14, color: '#52C76A', fontWeight: '700' },
+  pumpText: { fontSize: 14, color: DS.success, fontWeight: '700' },
 
   tabs: {
-    flexDirection: 'row', backgroundColor: DS.bgSoft,
-    borderRadius: 14, padding: 4, marginHorizontal: 24, marginBottom: 20,
+    flexDirection: 'row', backgroundColor: DS.surface,
+    borderRadius: DS.radiusSm, padding: 4, marginHorizontal: DS.px, marginBottom: 20,
+    borderWidth: 1, borderColor: DS.border,
   },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  tabActive: { backgroundColor: '#FFFFFF', shadowColor: '#7C6FF7', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: DS.radiusXs, alignItems: 'center' },
+  tabActive: { backgroundColor: DS.primary },
   tabText: { fontSize: 14, color: DS.textSub, fontWeight: '600' },
-  tabTextActive: { color: DS.primary, fontWeight: '700' },
+  tabTextActive: { color: '#FFFFFF', fontWeight: '700' },
 
   chartBox: {
-    backgroundColor: DS.bgSoft, borderRadius: DS.radius,
-    padding: 18, marginHorizontal: 24, marginBottom: 16,
+    backgroundColor: DS.surface, borderRadius: DS.radius,
+    padding: 16, marginHorizontal: DS.px, marginBottom: 16,
+    ...cardShadow,
   },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   chartTitle: { fontSize: 15, fontWeight: '700', color: DS.text },
   chartSub: { fontSize: 12, color: DS.textLight },
-  chart: { borderRadius: 12, marginLeft: -8 },
+  chart: { borderRadius: DS.radiusSm, marginLeft: -8 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendLabel: { fontSize: 11, color: DS.textSub },
 
   insightBox: {
-    backgroundColor: DS.primaryLight, borderRadius: DS.radius,
-    padding: 20, marginHorizontal: 24,
+    backgroundColor: DS.surface, borderRadius: DS.radius,
+    padding: 20, marginHorizontal: DS.px,
+    ...cardShadow,
   },
   insightItems: { gap: 16 },
   insightItem: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   insightIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  insightIconText: { fontSize: 22 },
   insightContent: {},
   insightLabel: { fontSize: 12, color: DS.textSub, marginBottom: 2 },
   insightVal: { fontSize: 18, fontWeight: '800', color: DS.text },
 
   empty: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 40 },
-  emptyEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyText: { fontSize: 16, color: DS.textSub, textAlign: 'center', lineHeight: 26, fontWeight: '600' },
+  emptyText: { fontSize: 15, color: DS.textSub, textAlign: 'center', lineHeight: 24, fontWeight: '500', marginTop: 16 },
 });
