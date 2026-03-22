@@ -1,29 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRecords, deleteRecord } from '../storage';
 import { RecordEntry, RECORD_LABELS, RECORD_ICONS } from '../types';
-
-const DS = {
-  bg: '#FFFFFF',
-  bgSoft: '#F8F9FF',
-  primary: '#7C6FF7',
-  primaryLight: '#EEF0FF',
-  text: '#1A1A2E',
-  textSub: '#6B7280',
-  textLight: '#9CA3AF',
-};
-
-const TYPE_ACCENT: Record<string, string> = {
-  breastfeed: '#FF6B9D',
-  bottle: '#4D9FEC',
-  pump: '#52C76A',
-  pee: '#F0B429',
-  poop: '#D4875E',
-  vomit: '#9B7FE8',
-};
+import { DS, CARD_THEME, getRelativeTime } from '../theme';
 
 function formatTimeOnly(iso: string) {
   const d = new Date(iso);
@@ -70,22 +52,25 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
 
   useEffect(() => { load(); }, [load, refresh]);
 
-  async function handleDelete(id: string) {
+  const handleDelete = useCallback((id: string) => {
     Alert.alert('삭제', '이 기록을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       { text: '삭제', style: 'destructive', onPress: async () => { await deleteRecord(id); load(); } },
     ]);
-  }
+  }, [load]);
 
-  const grouped = groupByDate(records);
+  const grouped = useMemo(() => groupByDate(records), [records]);
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Clean White Header */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>기록</Text>
         <Text style={styles.headerSub}>총 {records.length}건</Text>
       </View>
+
+      {/* Separator */}
+      <View style={styles.separator} />
 
       {records.length === 0 ? (
         <View style={styles.empty}>
@@ -109,7 +94,8 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
 
               {/* Timeline cards */}
               {group.items.map((item, idx) => {
-                const accent = TYPE_ACCENT[item.type];
+                const accent = CARD_THEME[item.type]?.accent ?? DS.textSub;
+                const relTime = getRelativeTime(item.startTime);
                 return (
                   <View key={item.id} style={styles.timelineRow}>
                     {/* Timeline left: dot + line */}
@@ -125,7 +111,10 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
                           <Text style={styles.cardEmoji}>{RECORD_ICONS[item.type]}</Text>
                           <Text style={styles.cardName}>{RECORD_LABELS[item.type]}</Text>
                         </View>
-                        <Text style={[styles.cardTime, { color: accent }]}>{formatTimeOnly(item.startTime)}</Text>
+                        <View style={styles.cardTimeCol}>
+                          <Text style={[styles.cardRelTime, { color: accent }]}>{relTime}</Text>
+                          <Text style={styles.cardAbsTime}>{formatTimeOnly(item.startTime)}</Text>
+                        </View>
                       </View>
                       {getDetail(item) ? (
                         <Text style={styles.cardDetail}>{getDetail(item)}</Text>
@@ -159,6 +148,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 28, fontWeight: '900', color: DS.text },
   headerSub: { fontSize: 14, color: DS.primary, fontWeight: '700' },
 
+  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginBottom: 8 },
+
   list: { paddingHorizontal: 20, paddingBottom: 40 },
 
   dateGroup: { marginBottom: 8 },
@@ -186,11 +177,13 @@ const styles = StyleSheet.create({
     borderRadius: 16, padding: 14, marginLeft: 10,
     borderLeftWidth: 3,
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardEmoji: { fontSize: 20 },
   cardName: { fontSize: 16, fontWeight: '700', color: DS.text },
-  cardTime: { fontSize: 14, fontWeight: '700' },
+  cardTimeCol: { alignItems: 'flex-end' },
+  cardRelTime: { fontSize: 13, fontWeight: '700' },
+  cardAbsTime: { fontSize: 11, color: DS.textLight, marginTop: 2 },
   cardDetail: { fontSize: 13, color: DS.textSub, marginTop: 6 },
 
   deleteText: { color: '#E5484D', fontSize: 12, fontWeight: '600', marginTop: 8 },

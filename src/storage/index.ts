@@ -3,6 +3,7 @@ import { RecordEntry, GrowthEntry } from '../types';
 
 const KEY = 'agalog_records';
 const GROWTH_KEY = 'agalog_growth';
+const BIRTHDAY_KEY = 'agalog_baby_birthday';
 
 export async function getRecords(): Promise<RecordEntry[]> {
   const raw = await AsyncStorage.getItem(KEY);
@@ -36,4 +37,12 @@ export async function deleteGrowthEntry(id: string): Promise<void> {
   const entries = await getGrowthEntries();
   const filtered = entries.filter((e) => e.id !== id);
   await AsyncStorage.setItem(GROWTH_KEY, JSON.stringify(filtered));
+}
+
+export async function getBabyBirthday(): Promise<string | null> {
+  return AsyncStorage.getItem(BIRTHDAY_KEY);
+}
+
+export async function setBabyBirthday(dateStr: string): Promise<void> {
+  await AsyncStorage.setItem(BIRTHDAY_KEY, dateStr);
 }

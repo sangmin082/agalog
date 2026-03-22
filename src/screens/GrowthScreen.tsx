@@ -6,16 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getGrowthEntries, addGrowthEntry, deleteGrowthEntry } from '../storage';
 import { GrowthEntry } from '../types';
-
-const DS = {
-  bg: '#FFFFFF',
-  bgSoft: '#F8F9FF',
-  primary: '#7C6FF7',
-  primaryLight: '#EEF0FF',
-  text: '#1A1A2E',
-  textSub: '#6B7280',
-  textLight: '#9CA3AF',
-};
+import { DS } from '../theme';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -31,7 +22,7 @@ export default function GrowthScreen() {
   const load = useCallback(async () => { setEntries(await getGrowthEntries()); }, []);
   useEffect(() => { load(); }, [load]);
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     if (!weightKg && !heightCm && !headCm) {
       Alert.alert('입력 필요', '최소 하나의 값을 입력해주세요.');
       return;
@@ -47,14 +38,17 @@ export default function GrowthScreen() {
     setModal(false);
     setWeightKg(''); setHeightCm(''); setHeadCm('');
     load();
-  }
+  }, [weightKg, heightCm, headCm, load]);
 
-  async function handleDelete(id: string) {
+  const handleDelete = useCallback((id: string) => {
     Alert.alert('삭제', '이 기록을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       { text: '삭제', style: 'destructive', onPress: async () => { await deleteGrowthEntry(id); load(); } },
     ]);
-  }
+  }, [load]);
+
+  const openModal = useCallback(() => setModal(true), []);
+  const closeModal = useCallback(() => setModal(false), []);
 
   const latest = entries[0];
 
@@ -66,41 +60,52 @@ export default function GrowthScreen() {
           <Text style={styles.headerTitle}>성장</Text>
           <Text style={styles.headerSub}>아가의 성장을 기록해요</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModal(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={openModal}>
           <Text style={styles.addBtnText}>+ 추가</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Separator */}
+      <View style={styles.separator} />
+
       {/* Latest measurement hero */}
       {latest && (
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>최근 측정</Text>
-          <Text style={styles.heroDate}>{formatDate(latest.date)}</Text>
-          <View style={styles.heroRow}>
-            {latest.weightKg !== undefined && (
-              <View style={[styles.heroItem, { backgroundColor: '#FFF0F5' }]}>
-                <Text style={styles.heroEmoji}>⚖️</Text>
-                <Text style={[styles.heroVal, { color: '#FF6B9D' }]}>{latest.weightKg}</Text>
-                <Text style={styles.heroUnit}>kg</Text>
-              </View>
-            )}
-            {latest.heightCm !== undefined && (
-              <View style={[styles.heroItem, { backgroundColor: '#EEF6FF' }]}>
-                <Text style={styles.heroEmoji}>📏</Text>
-                <Text style={[styles.heroVal, { color: '#4D9FEC' }]}>{latest.heightCm}</Text>
-                <Text style={styles.heroUnit}>cm</Text>
-              </View>
-            )}
-            {latest.headCm !== undefined && (
-              <View style={[styles.heroItem, { backgroundColor: '#F5F0FF' }]}>
-                <Text style={styles.heroEmoji}>🔵</Text>
-                <Text style={[styles.heroVal, { color: '#9B7FE8' }]}>{latest.headCm}</Text>
-                <Text style={styles.heroUnit}>cm</Text>
-              </View>
-            )}
+        <>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>최근 측정</Text>
+            <View style={styles.sectionLine} />
           </View>
-        </View>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroDate}>{formatDate(latest.date)}</Text>
+            <View style={styles.heroRow}>
+              {latest.weightKg !== undefined && (
+                <View style={[styles.heroItem, { backgroundColor: '#FFF0F5' }]}>
+                  <Text style={styles.heroEmoji}>⚖️</Text>
+                  <Text style={[styles.heroVal, { color: '#FF6B9D' }]}>{latest.weightKg}</Text>
+                  <Text style={styles.heroUnit}>kg</Text>
+                </View>
+              )}
+              {latest.heightCm !== undefined && (
+                <View style={[styles.heroItem, { backgroundColor: '#EEF6FF' }]}>
+                  <Text style={styles.heroEmoji}>📏</Text>
+                  <Text style={[styles.heroVal, { color: '#4D9FEC' }]}>{latest.heightCm}</Text>
+                  <Text style={styles.heroUnit}>cm</Text>
+                </View>
+              )}
+              {latest.headCm !== undefined && (
+                <View style={[styles.heroItem, { backgroundColor: '#F5F0FF' }]}>
+                  <Text style={styles.heroEmoji}>🔵</Text>
+                  <Text style={[styles.heroVal, { color: '#9B7FE8' }]}>{latest.headCm}</Text>
+                  <Text style={styles.heroUnit}>cm</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </>
       )}
+
+      {/* Separator */}
+      <View style={styles.separator} />
 
       {/* List */}
       {entries.length === 0 ? (
@@ -108,7 +113,7 @@ export default function GrowthScreen() {
           <Text style={styles.emptyEmoji}>📏</Text>
           <Text style={styles.emptyTitle}>아직 성장 기록이 없어요</Text>
           <Text style={styles.emptyHint}>상단의 + 추가 버튼을 눌러보세요!</Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => setModal(true)}>
+          <TouchableOpacity style={styles.emptyBtn} onPress={openModal}>
             <Text style={styles.emptyBtnText}>첫 기록 추가하기</Text>
           </TouchableOpacity>
         </View>
@@ -119,7 +124,10 @@ export default function GrowthScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={styles.listLabel}>전체 기록 ({entries.length}개)</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>전체 기록 ({entries.length}개)</Text>
+              <View style={styles.sectionLine} />
+            </View>
           }
           renderItem={({ item, index }) => (
             <View style={styles.row}>
@@ -157,9 +165,11 @@ export default function GrowthScreen() {
       {/* Modal */}
       <Modal visible={modal} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={styles.overlayTap} onStartShouldSetResponder={() => { setModal(false); return true; }} />
+          <View style={styles.overlayTap} onStartShouldSetResponder={() => { closeModal(); return true; }} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.sheet}>
+              {/* Colored top strip */}
+              <View style={styles.sheetStrip} />
               <View style={styles.sheetHandle} />
               <Text style={styles.sheetTitle}>📏 성장 기록 추가</Text>
 
@@ -187,7 +197,7 @@ export default function GrowthScreen() {
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                 <Text style={styles.saveBtnText}>저장하기</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(false)}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={closeModal}>
                 <Text style={styles.cancelBtnText}>취소</Text>
               </TouchableOpacity>
             </View>
@@ -213,16 +223,27 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 
+  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginVertical: 8 },
+
+  // ── Section headers (consistent) ──
+  sectionHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, marginBottom: 12, marginTop: 4, gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 13, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  sectionLine: {
+    flex: 1, height: 1, backgroundColor: DS.primary + '15',
+  },
+
   // Hero
   heroCard: {
-    marginHorizontal: 24, marginBottom: 20,
+    marginHorizontal: 24, marginBottom: 8,
     backgroundColor: DS.bgSoft, borderRadius: 20, padding: 20,
   },
-  heroLabel: {
-    fontSize: 11, color: DS.textLight, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1,
-  },
-  heroDate: { fontSize: 14, color: DS.textSub, marginTop: 4, marginBottom: 16 },
+  heroDate: { fontSize: 14, color: DS.textSub, marginBottom: 16 },
   heroRow: { flexDirection: 'row', gap: 12 },
   heroItem: {
     flex: 1, borderRadius: 16, padding: 14, alignItems: 'center',
@@ -232,10 +253,6 @@ const styles = StyleSheet.create({
   heroUnit: { fontSize: 12, color: DS.textLight, marginTop: 2 },
 
   // List
-  listLabel: {
-    fontSize: 13, fontWeight: '700', color: DS.textSub,
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
-  },
   list: { paddingHorizontal: 24, paddingBottom: 40 },
   row: {
     backgroundColor: DS.bgSoft, borderRadius: 16,
@@ -268,11 +285,15 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
+    paddingHorizontal: 24, paddingTop: 0, paddingBottom: 44,
+    overflow: 'hidden',
+  },
+  sheetStrip: {
+    height: 3, width: '100%', backgroundColor: DS.primary,
   },
   sheetHandle: {
-    width: 40, height: 5, borderRadius: 3,
-    backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 20,
+    width: 48, height: 5, borderRadius: 3,
+    backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 10, marginBottom: 20,
   },
   sheetTitle: { fontSize: 22, fontWeight: '800', color: DS.text, marginBottom: 16 },
   fieldLabel: { fontSize: 13, color: DS.textSub, fontWeight: '600', marginBottom: 6, marginTop: 16 },

@@ -1,20 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { getRecords } from '../storage';
 import { RecordEntry, RecordType, RECORD_ICONS, RECORD_LABELS } from '../types';
-
-const DS = {
-  bg: '#FFFFFF',
-  bgSoft: '#F8F9FF',
-  primary: '#7C6FF7',
-  primaryLight: '#EEF0FF',
-  text: '#1A1A2E',
-  textSub: '#6B7280',
-  textLight: '#9CA3AF',
-  radius: 20,
-};
+import { DS, CARD_THEME } from '../theme';
 
 const W = Dimensions.get('window').width - 48;
 
@@ -62,6 +52,11 @@ function getHourlyDistribution(records: RecordEntry[], type: RecordType): number
   return counts;
 }
 
+function formatHHMM(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 type Tab = 'daily' | 'hourly';
 
 export default function StatsScreen({ refresh }: { refresh: number }) {
@@ -71,40 +66,61 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
   const load = useCallback(async () => { setRecords(await getRecords()); }, []);
   useEffect(() => { load(); }, [load, refresh]);
 
-  const days = getLast7Days();
-  const labels = days.map(getLabel);
+  const days = useMemo(() => getLast7Days(), []);
+  const labels = useMemo(() => days.map(getLabel), [days]);
 
-  const breastfeedCounts = countByDay(records, 'breastfeed', days);
-  const bottleCounts = countByDay(records, 'bottle', days);
-  const peeCounts = countByDay(records, 'pee', days);
-  const pumpMl = totalMlByDay(records, 'pump', days);
+  const breastfeedCounts = useMemo(() => countByDay(records, 'breastfeed', days), [records, days]);
+  const bottleCounts = useMemo(() => countByDay(records, 'bottle', days), [records, days]);
+  const peeCounts = useMemo(() => countByDay(records, 'pee', days), [records, days]);
+  const pumpMl = useMemo(() => totalMlByDay(records, 'pump', days), [records, days]);
 
   const today = new Date().toDateString();
-  const todayRecords = records.filter((r) => new Date(r.startTime).toDateString() === today);
-  const totalBreastfeedMin = todayRecords
-    .filter((r) => r.type === 'breastfeed')
-    .reduce((s, r) => s + (r.leftMinutes ?? 0) + (r.rightMinutes ?? 0), 0);
-  const totalBottleMl = todayRecords
-    .filter((r) => r.type === 'bottle')
-    .reduce((s, r) => s + (r.amountMl ?? 0), 0);
-  const totalPumpMl = todayRecords
-    .filter((r) => r.type === 'pump')
-    .reduce((s, r) => s + (r.amountMl ?? 0), 0);
+  const todayRecords = useMemo(() => records.filter((r) => new Date(r.startTime).toDateString() === today), [records, today]);
 
-  const hourlyBreastfeed = getHourlyDistribution(records, 'breastfeed');
+  const totalBreastfeedMin = useMemo(() =>
+    todayRecords.filter((r) => r.type === 'breastfeed')
+      .reduce((s, r) => s + (r.leftMinutes ?? 0) + (r.rightMinutes ?? 0), 0),
+    [todayRecords]
+  );
+  const totalBottleMl = useMemo(() =>
+    todayRecords.filter((r) => r.type === 'bottle')
+      .reduce((s, r) => s + (r.amountMl ?? 0), 0),
+    [todayRecords]
+  );
+  const totalPumpMl = useMemo(() =>
+    todayRecords.filter((r) => r.type === 'pump')
+      .reduce((s, r) => s + (r.amountMl ?? 0), 0),
+    [todayRecords]
+  );
+
+  // Last 24h records for timeline strip
+  const last24hRecords = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return records
+      .filter((r) => new Date(r.startTime).getTime() >= cutoff)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [records]);
+
+  const hourlyBreastfeed = useMemo(() => getHourlyDistribution(records, 'breastfeed'), [records]);
   const hourlyLabels = ['0시', '3시', '6시', '9시', '12시', '15시', '18시', '21시'];
-  const hourlyData = [0, 3, 6, 9, 12, 15, 18, 21].map((h) =>
-    hourlyBreastfeed.slice(h, h + 3).reduce((a, b) => a + b, 0)
+  const hourlyData = useMemo(() =>
+    [0, 3, 6, 9, 12, 15, 18, 21].map((h) =>
+      hourlyBreastfeed.slice(h, h + 3).reduce((a, b) => a + b, 0)
+    ),
+    [hourlyBreastfeed]
   );
 
   const hasData = records.length > 0;
 
-  const summaryItems = [
+  const summaryItems = useMemo(() => [
     { icon: '🤱', label: '모유수유', val: `${todayRecords.filter(r => r.type === 'breastfeed').length}회`, sub: totalBreastfeedMin > 0 ? `${totalBreastfeedMin}분` : null, accent: '#FF6B9D', bg: '#FFF0F5' },
     { icon: '🍼', label: '수유', val: `${todayRecords.filter(r => r.type === 'bottle').length}회`, sub: totalBottleMl > 0 ? `${totalBottleMl}ml` : null, accent: '#4D9FEC', bg: '#EEF6FF' },
     { icon: '💛', label: '소변', val: `${todayRecords.filter(r => r.type === 'pee').length}회`, sub: null, accent: '#F0B429', bg: '#FFFBEE' },
     { icon: '💩', label: '대변', val: `${todayRecords.filter(r => r.type === 'poop').length}회`, sub: null, accent: '#D4875E', bg: '#FEF5EE' },
-  ];
+  ], [todayRecords, totalBreastfeedMin, totalBottleMl]);
+
+  const handleTabDaily = useCallback(() => setTab('daily'), []);
+  const handleTabHourly = useCallback(() => setTab('hourly'), []);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -115,7 +131,40 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
           <Text style={styles.headerSub}>아가의 하루를 한눈에</Text>
         </View>
 
-        {/* Today summary */}
+        {/* Separator */}
+        <View style={styles.separator} />
+
+        {/* ── Last 24h Timeline ── */}
+        {last24hRecords.length > 0 && (
+          <View style={styles.timelineSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>최근 24시간</Text>
+              <View style={styles.sectionLine} />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timelineScroll}>
+              {last24hRecords.map((r) => {
+                const theme = CARD_THEME[r.type];
+                return (
+                  <View key={r.id} style={[styles.timelineBadge, { backgroundColor: theme?.bg ?? DS.bgSoft }]}>
+                    <Text style={styles.timelineBadgeEmoji}>{RECORD_ICONS[r.type]}</Text>
+                    <Text style={[styles.timelineBadgeTime, { color: theme?.accent ?? DS.textSub }]}>
+                      {formatHHMM(r.startTime)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Separator */}
+        <View style={styles.separator} />
+
+        {/* Section: Today summary */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>오늘 요약</Text>
+          <View style={styles.sectionLine} />
+        </View>
         <View style={styles.summaryGrid}>
           {summaryItems.map((item) => (
             <View key={item.label} style={[styles.summaryCard, { backgroundColor: item.bg }]}>
@@ -133,12 +182,21 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
           </View>
         )}
 
+        {/* Separator */}
+        <View style={styles.separator} />
+
+        {/* Section: Charts */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>차트</Text>
+          <View style={styles.sectionLine} />
+        </View>
+
         {/* Tab switcher */}
         <View style={styles.tabs}>
-          <TouchableOpacity style={[styles.tabBtn, tab === 'daily' && styles.tabActive]} onPress={() => setTab('daily')}>
+          <TouchableOpacity style={[styles.tabBtn, tab === 'daily' && styles.tabActive]} onPress={handleTabDaily}>
             <Text style={[styles.tabText, tab === 'daily' && styles.tabTextActive]}>일별 추이</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, tab === 'hourly' && styles.tabActive]} onPress={() => setTab('hourly')}>
+          <TouchableOpacity style={[styles.tabBtn, tab === 'hourly' && styles.tabActive]} onPress={handleTabHourly}>
             <Text style={[styles.tabText, tab === 'hourly' && styles.tabTextActive]}>시간대 패턴</Text>
           </TouchableOpacity>
         </View>
@@ -211,8 +269,15 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
               />
             </View>
 
+            {/* Separator */}
+            <View style={styles.separator} />
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>인사이트</Text>
+              <View style={styles.sectionLine} />
+            </View>
+
             <View style={styles.insightBox}>
-              <Text style={styles.insightTitle}>인사이트</Text>
               {(() => {
                 const maxHourIdx = hourlyData.indexOf(Math.max(...hourlyData));
                 const maxHour = hourlyLabels[maxHourIdx];
@@ -270,6 +335,32 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 28, fontWeight: '900', color: DS.text },
   headerSub: { fontSize: 13, color: DS.textLight, marginTop: 4 },
 
+  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginVertical: 8 },
+
+  // ── Section headers (consistent) ──
+  sectionHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, marginBottom: 12, marginTop: 8, gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 13, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  sectionLine: {
+    flex: 1, height: 1, backgroundColor: DS.primary + '15',
+  },
+
+  // ── 24h Timeline ──
+  timelineSection: { marginBottom: 4 },
+  timelineScroll: { paddingLeft: 24, paddingRight: 12, gap: 8, paddingBottom: 4 },
+  timelineBadge: {
+    borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6,
+    alignItems: 'center', minWidth: 52,
+  },
+  timelineBadgeEmoji: { fontSize: 18, marginBottom: 2 },
+  timelineBadgeTime: { fontSize: 10, fontWeight: '700' },
+
+  // ── Summary ──
   summaryGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
     gap: 10, paddingHorizontal: 24, marginBottom: 16,
@@ -315,7 +406,6 @@ const styles = StyleSheet.create({
     backgroundColor: DS.primaryLight, borderRadius: DS.radius,
     padding: 20, marginHorizontal: 24,
   },
-  insightTitle: { fontSize: 17, fontWeight: '800', color: DS.primary, marginBottom: 16 },
   insightItems: { gap: 16 },
   insightItem: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   insightIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

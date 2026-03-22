@@ -1,35 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Modal, TextInput, Alert, Platform,
+  Modal, TextInput, Alert, Platform, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addRecord, getRecords } from '../storage';
+import { addRecord, getRecords, getBabyBirthday, setBabyBirthday } from '../storage';
 import { RecordType, RecordEntry, RECORD_LABELS, RECORD_ICONS } from '../types';
-
-// ─── Premium Design Tokens ───
-const DS = {
-  bg: '#FFFFFF',
-  bgSoft: '#F8F9FF',
-  primary: '#7C6FF7',
-  primaryLight: '#EEF0FF',
-  text: '#1A1A2E',
-  textSub: '#6B7280',
-  textLight: '#9CA3AF',
-  radius: 20,
-  radiusSm: 14,
-};
-
-const CARD_THEME: Record<RecordType, { bg: string; accent: string }> = {
-  breastfeed: { bg: '#FFF0F5', accent: '#FF6B9D' },
-  bottle:     { bg: '#EEF6FF', accent: '#4D9FEC' },
-  pump:       { bg: '#EDFBEE', accent: '#52C76A' },
-  pee:        { bg: '#FFFBEE', accent: '#F0B429' },
-  poop:       { bg: '#FEF5EE', accent: '#D4875E' },
-  vomit:      { bg: '#F5F0FF', accent: '#9B7FE8' },
-};
-
-const RECORD_TYPES: RecordType[] = ['breastfeed', 'bottle', 'pump', 'pee', 'poop', 'vomit'];
+import { DS, CARD_THEME, RECORD_TYPES, QUICK_TAP_TYPES, getRelativeTime, sectionHeaderStyle } from '../theme';
 
 function nowHHMM() {
   const d = new Date();
@@ -69,31 +46,86 @@ function getTodayDate(): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
+function calcBabyAge(birthday: string): string {
+  const birth = new Date(birthday);
+  const now = new Date();
+  const diffMs = now.getTime() - birth.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 0) return 'D-' + Math.abs(diffDays);
+  return 'D+' + diffDays;
+}
+
 export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => void }) {
   const [modal, setModal] = useState<RecordType | null>(null);
   const [form, setForm] = useState<FormState>({
     time: nowHHMM(), leftMinutes: '', rightMinutes: '', amountMl: '', pumpDuration: '', note: '',
   });
-  const [todayCounts, setTodayCounts] = useState<Partial<Record<RecordType, number>>>({});
+  const [records, setRecords] = useState<RecordEntry[]>([]);
+  const [babyBirthday, setBabyBirthdayState] = useState<string | null>(null);
+  const [showBirthdayPrompt, setShowBirthdayPrompt] = useState(false);
+  const [birthdayInput, setBirthdayInput] = useState('');
+  const [saveFlash] = useState(new Animated.Value(1));
 
-  const loadCounts = useCallback(async () => {
-    const records = await getRecords();
-    setTodayCounts(getTodayCounts(records));
+  const loadData = useCallback(async () => {
+    const recs = await getRecords();
+    setRecords(recs);
+    const bday = await getBabyBirthday();
+    setBabyBirthdayState(bday);
+    if (!bday) setShowBirthdayPrompt(true);
   }, []);
 
-  useEffect(() => { loadCounts(); }, [loadCounts]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  function openModal(type: RecordType) {
+  const todayCounts = useMemo(() => getTodayCounts(records), [records]);
+
+  const lastRecord = useMemo(() => {
+    if (records.length === 0) return null;
+    return records[0]; // records are sorted newest first
+  }, [records]);
+
+  const totalToday = useMemo(
+    () => RECORD_TYPES.reduce((sum, t) => sum + (todayCounts[t] ?? 0), 0),
+    [todayCounts]
+  );
+
+  const openModal = useCallback((type: RecordType) => {
     setModal(type);
     setForm({ time: nowHHMM(), leftMinutes: '', rightMinutes: '', amountMl: '', pumpDuration: '', note: '' });
-  }
+  }, []);
 
-  async function handleSave() {
+  const handleQuickTap = useCallback(async (type: RecordType) => {
+    const entry: RecordEntry = {
+      id: Date.now().toString(),
+      type,
+      startTime: new Date().toISOString(),
+    };
+    await addRecord(entry);
+    onRecordAdded();
+    loadData();
+    Alert.alert('기록 완료', `${RECORD_ICONS[type]} ${RECORD_LABELS[type]} 기록됨!`);
+  }, [onRecordAdded, loadData]);
+
+  const handleCardPress = useCallback((type: RecordType) => {
+    if (QUICK_TAP_TYPES.includes(type)) {
+      handleQuickTap(type);
+    } else {
+      openModal(type);
+    }
+  }, [handleQuickTap, openModal]);
+
+  const handleSave = useCallback(async () => {
     if (!modal) return;
     if (!/^\d{1,2}:\d{2}$/.test(form.time)) {
       Alert.alert('시간 형식 오류', 'HH:MM 형식으로 입력해주세요.');
       return;
     }
+
+    // Flash animation on save button
+    Animated.sequence([
+      Animated.timing(saveFlash, { toValue: 0.5, duration: 100, useNativeDriver: true }),
+      Animated.timing(saveFlash, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+
     const entry: RecordEntry = {
       id: Date.now().toString(),
       type: modal,
@@ -110,18 +142,33 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
       note: form.note || undefined,
     };
     await addRecord(entry);
-    setModal(null);
-    onRecordAdded();
-    loadCounts();
-    Alert.alert('기록 완료', `${RECORD_LABELS[modal]} 기록이 저장됐어요.`);
-  }
 
-  const totalToday = RECORD_TYPES.reduce((sum, t) => sum + (todayCounts[t] ?? 0), 0);
+    setTimeout(() => {
+      setModal(null);
+      onRecordAdded();
+      loadData();
+      Alert.alert('기록 완료', `${RECORD_LABELS[modal]} 기록이 저장됐어요.`);
+    }, 250);
+  }, [modal, form, onRecordAdded, loadData, saveFlash]);
+
+  const handleSaveBirthday = useCallback(async () => {
+    // Expect YYYY-MM-DD or YYYY.MM.DD
+    const cleaned = birthdayInput.replace(/\./g, '-').trim();
+    if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(cleaned)) {
+      Alert.alert('형식 오류', 'YYYY-MM-DD 형식으로 입력해주세요.\n예: 2026-01-15');
+      return;
+    }
+    await setBabyBirthday(cleaned);
+    setBabyBirthdayState(cleaned);
+    setShowBirthdayPrompt(false);
+  }, [birthdayInput]);
+
+  const closeModal = useCallback(() => setModal(null), []);
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ── Clean White Header ── */}
+        {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>안녕하세요!</Text>
@@ -129,12 +176,38 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
             <Text style={styles.headerDate}>{getTodayDate()}</Text>
           </View>
           <View style={styles.countBadgeOuter}>
+            {babyBirthday && (
+              <View style={styles.ageBadge}>
+                <Text style={styles.ageText}>{calcBabyAge(babyBirthday)}</Text>
+              </View>
+            )}
             <View style={styles.countBadge}>
               <Text style={styles.countNum}>{totalToday}</Text>
             </View>
             <Text style={styles.countLabel}>오늘 기록</Text>
           </View>
         </View>
+
+        {/* ── Baby birthday prompt ── */}
+        {showBirthdayPrompt && !babyBirthday && (
+          <View style={styles.birthdayCard}>
+            <Text style={styles.birthdayTitle}>아기 생일을 입력해주세요</Text>
+            <Text style={styles.birthdayHint}>일령(D+)을 계산해 드릴게요</Text>
+            <View style={styles.birthdayRow}>
+              <TextInput
+                style={styles.birthdayInput}
+                placeholder="2026-01-15"
+                placeholderTextColor={DS.textLight}
+                value={birthdayInput}
+                onChangeText={setBirthdayInput}
+                keyboardType="numbers-and-punctuation"
+              />
+              <TouchableOpacity style={styles.birthdaySaveBtn} onPress={handleSaveBirthday}>
+                <Text style={styles.birthdaySaveBtnText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* ── Summary Chips ── */}
         <View style={styles.chipSection}>
@@ -157,23 +230,50 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
           </ScrollView>
         </View>
 
+        {/* ── Last Record ── */}
+        <View style={styles.lastRecordSection}>
+          <View style={styles.sectionRowChip}>
+            <Text style={styles.sectionTitle}>마지막 기록</Text>
+            <View style={styles.sectionLineChip} />
+          </View>
+          <View style={styles.lastRecordCard}>
+            {lastRecord ? (
+              <View style={styles.lastRecordInner}>
+                <Text style={styles.lastRecordIcon}>{RECORD_ICONS[lastRecord.type]}</Text>
+                <View style={styles.lastRecordTextWrap}>
+                  <Text style={styles.lastRecordType}>{RECORD_LABELS[lastRecord.type]}</Text>
+                  <Text style={styles.lastRecordTime}>{getRelativeTime(lastRecord.startTime)}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.lastRecordEmpty}>아직 기록이 없어요</Text>
+            )}
+          </View>
+        </View>
+
+        {/* ── Separator ── */}
+        <View style={styles.separator} />
+
         {/* ── Record Grid ── */}
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle2}>기록하기</Text>
+          <Text style={styles.sectionTitle}>기록하기</Text>
           <View style={styles.sectionLine} />
         </View>
         <View style={styles.grid}>
           {RECORD_TYPES.map((type) => {
             const theme = CARD_THEME[type];
             const count = todayCounts[type] ?? 0;
+            const isQuick = QUICK_TAP_TYPES.includes(type);
             return (
               <TouchableOpacity
                 key={type}
-                style={[styles.card, { backgroundColor: theme.bg }]}
-                onPress={() => openModal(type)}
+                style={[styles.card, {
+                  backgroundColor: theme.bg,
+                  shadowColor: theme.shadow,
+                }]}
+                onPress={() => handleCardPress(type)}
                 activeOpacity={0.7}
               >
-                {/* Accent strip at top */}
                 <View style={[styles.cardAccent, { backgroundColor: theme.accent + '30' }]} />
                 {count > 0 && (
                   <View style={[styles.badge, { backgroundColor: theme.accent }]}>
@@ -182,6 +282,7 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                 )}
                 <Text style={styles.cardIcon}>{RECORD_ICONS[type]}</Text>
                 <Text style={[styles.cardLabel, { color: theme.accent }]}>{RECORD_LABELS[type]}</Text>
+                {isQuick && <Text style={styles.quickLabel}>탭하면 바로 기록</Text>}
               </TouchableOpacity>
             );
           })}
@@ -191,11 +292,13 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
       {/* ── Bottom Sheet Modal ── */}
       <Modal visible={!!modal} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={styles.overlayTap} onStartShouldSetResponder={() => { setModal(null); return true; }} />
+          <View style={styles.overlayTap} onStartShouldSetResponder={() => { closeModal(); return true; }} />
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheetScroll}>
             <View style={styles.sheet}>
               {modal && (
                 <>
+                  {/* Colored top strip */}
+                  <View style={[styles.sheetStrip, { backgroundColor: CARD_THEME[modal].accent }]} />
                   <View style={styles.sheetHandle} />
                   <View style={styles.sheetHeader}>
                     <Text style={styles.sheetEmoji}>{RECORD_ICONS[modal]}</Text>
@@ -282,14 +385,16 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
                     />
                   </View>
 
-                  <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: CARD_THEME[modal].accent }]}
-                    onPress={handleSave}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.saveBtnText}>저장하기</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(null)}>
+                  <Animated.View style={{ opacity: saveFlash }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: CARD_THEME[modal].accent }]}
+                      onPress={handleSave}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.saveBtnText}>저장하기</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={closeModal}>
                     <Text style={styles.cancelBtnText}>취소</Text>
                   </TouchableOpacity>
                 </>
@@ -323,6 +428,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 26, fontWeight: '900', color: DS.text, letterSpacing: -0.3 },
   headerDate: { fontSize: 13, color: DS.textLight, marginTop: 6 },
   countBadgeOuter: { alignItems: 'center' },
+  ageBadge: {
+    backgroundColor: DS.primaryLight,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  ageText: { fontSize: 13, fontWeight: '800', color: DS.primary },
   countBadge: {
     width: 52, height: 52, borderRadius: 16,
     backgroundColor: DS.primary,
@@ -333,8 +446,29 @@ const styles = StyleSheet.create({
   countNum: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', lineHeight: 26 },
   countLabel: { fontSize: 10, color: DS.textSub, fontWeight: '600', marginTop: 4 },
 
+  // ── Birthday prompt ──
+  birthdayCard: {
+    marginHorizontal: 24, marginTop: 12, marginBottom: 8,
+    backgroundColor: '#FFFBEE', borderRadius: 16,
+    padding: 16, borderWidth: 1, borderColor: '#F0B42930',
+  },
+  birthdayTitle: { fontSize: 15, fontWeight: '700', color: DS.text, marginBottom: 4 },
+  birthdayHint: { fontSize: 12, color: DS.textSub, marginBottom: 12 },
+  birthdayRow: { flexDirection: 'row', gap: 8 },
+  birthdayInput: {
+    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 15, fontWeight: '600', color: DS.text,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  birthdaySaveBtn: {
+    backgroundColor: DS.primary, borderRadius: 10,
+    paddingHorizontal: 18, justifyContent: 'center',
+  },
+  birthdaySaveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+
   // ── Chips ──
-  chipSection: { marginBottom: 20, marginTop: 4 },
+  chipSection: { marginBottom: 8, marginTop: 4 },
   sectionRowChip: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, marginBottom: 12, gap: 12,
@@ -343,8 +477,8 @@ const styles = StyleSheet.create({
     flex: 1, height: 1, backgroundColor: DS.primary + '15',
   },
   sectionTitle: {
-    fontSize: 15, fontWeight: '800', color: DS.text,
-    letterSpacing: 0.3,
+    fontSize: 13, fontWeight: '700', color: DS.textSub,
+    textTransform: 'uppercase', letterSpacing: 0.8,
   },
   chipScroll: { paddingLeft: 24, paddingRight: 12, gap: 10 },
   chip: {
@@ -357,14 +491,27 @@ const styles = StyleSheet.create({
   chipCount: { fontSize: 20, fontWeight: '900', lineHeight: 24 },
   chipLabel: { fontSize: 10, color: DS.textSub, fontWeight: '600', marginTop: 2 },
 
+  // ── Last Record ──
+  lastRecordSection: { marginBottom: 8 },
+  lastRecordCard: {
+    marginHorizontal: 24,
+    backgroundColor: DS.bgSoft, borderRadius: 14,
+    padding: 14,
+  },
+  lastRecordInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  lastRecordIcon: { fontSize: 28 },
+  lastRecordTextWrap: {},
+  lastRecordType: { fontSize: 15, fontWeight: '700', color: DS.text },
+  lastRecordTime: { fontSize: 13, color: DS.textSub, marginTop: 2 },
+  lastRecordEmpty: { fontSize: 14, color: DS.textLight, textAlign: 'center' },
+
+  // ── Separator ──
+  separator: { height: 1, backgroundColor: DS.primary + '10', marginHorizontal: 24, marginVertical: 12 },
+
   // ── Grid ──
   sectionRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, marginBottom: 14, gap: 12,
-  },
-  sectionTitle2: {
-    fontSize: 15, fontWeight: '800', color: DS.text,
-    letterSpacing: 0.3,
   },
   sectionLine: {
     flex: 1, height: 1, backgroundColor: DS.primary + '15',
@@ -377,8 +524,8 @@ const styles = StyleSheet.create({
     width: 165, height: 120, borderRadius: DS.radius,
     alignItems: 'center', justifyContent: 'center',
     position: 'relative', marginBottom: 12,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    shadowOpacity: 0.15, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   cardIcon: { fontSize: 38 },
   cardAccent: {
@@ -386,6 +533,7 @@ const styles = StyleSheet.create({
     height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3,
   },
   cardLabel: { fontWeight: '800', fontSize: 14, marginTop: 8, letterSpacing: 0.3 },
+  quickLabel: { fontSize: 9, color: DS.textLight, marginTop: 2 },
   badge: {
     position: 'absolute', top: 10, right: 10,
     width: 22, height: 22, borderRadius: 11,
@@ -400,11 +548,15 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
+    paddingHorizontal: 24, paddingTop: 0, paddingBottom: 44,
+    overflow: 'hidden',
+  },
+  sheetStrip: {
+    height: 3, width: '100%',
   },
   sheetHandle: {
-    width: 40, height: 5, borderRadius: 3,
-    backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 20,
+    width: 48, height: 5, borderRadius: 3,
+    backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 10, marginBottom: 20,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 },
   sheetEmoji: { fontSize: 28 },
