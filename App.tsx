@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import HomeScreen from './src/screens/HomeScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import StatsScreen from './src/screens/StatsScreen';
 import GrowthScreen from './src/screens/GrowthScreen';
 
 const Tab = createBottomTabNavigator();
@@ -36,6 +37,12 @@ export default function App() {
             options={{ title: '기록', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📋</Text> }}
           >
             {() => <HistoryScreen refresh={refresh} />}
+          </Tab.Screen>
+          <Tab.Screen
+            name="Stats"
+            options={{ title: '분석', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📊</Text> }}
+          >
+            {() => <StatsScreen refresh={refresh} />}
           </Tab.Screen>
           <Tab.Screen
             name="Growth"

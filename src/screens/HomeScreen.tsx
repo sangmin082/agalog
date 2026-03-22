@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Modal, TextInput, Alert,
@@ -7,17 +7,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { addRecord, getRecords } from '../storage';
 import { RecordType, RecordEntry, RECORD_LABELS, RECORD_ICONS, RECORD_COLORS } from '../types';
 
-const RECORD_TYPES: RecordType[] = ['breastfeed', 'bottle', 'pump', 'sleep', 'pee', 'poop', 'vomit'];
+const RECORD_TYPES: RecordType[] = ['breastfeed', 'bottle', 'pump', 'pee', 'poop', 'vomit'];
+
+function nowHHMM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function parseTimeToISO(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const d = new Date();
+  if (!isNaN(h) && !isNaN(m)) {
+    d.setHours(h, m, 0, 0);
+  }
+  return d.toISOString();
+}
 
 interface FormState {
+  time: string;
   leftMinutes: string;
   rightMinutes: string;
   amountMl: string;
+  pumpDuration: string;
   note: string;
 }
-
-function pad(n: number) { return String(n).padStart(2, '0'); }
-function fmtSeconds(s: number) { return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`; }
 
 function getTodayCounts(records: RecordEntry[]): Partial<Record<RecordType, number>> {
   const today = new Date().toDateString();
@@ -32,11 +45,9 @@ function getTodayCounts(records: RecordEntry[]): Partial<Record<RecordType, numb
 
 export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => void }) {
   const [modal, setModal] = useState<RecordType | null>(null);
-  const [form, setForm] = useState<FormState>({ leftMinutes: '', rightMinutes: '', amountMl: '', note: '' });
-  const [sleeping, setSleeping] = useState(false);
-  const [sleepSeconds, setSleepSeconds] = useState(0);
-  const [sleepStart, setSleepStart] = useState<Date | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [form, setForm] = useState<FormState>({
+    time: nowHHMM(), leftMinutes: '', rightMinutes: '', amountMl: '', pumpDuration: '', note: '',
+  });
   const [todayCounts, setTodayCounts] = useState<Partial<Record<RecordType, number>>>({});
 
   const loadCounts = useCallback(async () => {
@@ -46,61 +57,39 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
 
   useEffect(() => { loadCounts(); }, [loadCounts]);
 
-  useEffect(() => {
-    if (sleeping) {
-      timerRef.current = setInterval(() => setSleepSeconds((s) => s + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [sleeping]);
-
-  function resetForm() {
-    setForm({ leftMinutes: '', rightMinutes: '', amountMl: '', note: '' });
-  }
-
-  async function handleSleepToggle() {
-    if (!sleeping) {
-      setSleepStart(new Date());
-      setSleepSeconds(0);
-      setSleeping(true);
-    } else {
-      setSleeping(false);
-      const mins = Math.round(sleepSeconds / 60);
-      const entry: RecordEntry = {
-        id: Date.now().toString(),
-        type: 'sleep',
-        startTime: sleepStart!.toISOString(),
-        endTime: new Date().toISOString(),
-        durationMinutes: mins,
-      };
-      await addRecord(entry);
-      setSleepSeconds(0);
-      setSleepStart(null);
-      onRecordAdded();
-      loadCounts();
-      Alert.alert('😴 수면 기록 완료!', `총 ${mins}분 잤어요.`);
-    }
+  function openModal(type: RecordType) {
+    setModal(type);
+    setForm({ time: nowHHMM(), leftMinutes: '', rightMinutes: '', amountMl: '', pumpDuration: '', note: '' });
   }
 
   async function handleSave() {
     if (!modal) return;
+
+    // validate time format
+    if (!/^\d{1,2}:\d{2}$/.test(form.time)) {
+      Alert.alert('시간 형식 오류', 'HH:MM 형식으로 입력해주세요. 예: 14:30');
+      return;
+    }
+
     const entry: RecordEntry = {
       id: Date.now().toString(),
       type: modal,
-      startTime: new Date().toISOString(),
+      startTime: parseTimeToISO(form.time),
       ...(modal === 'breastfeed' && {
         leftMinutes: form.leftMinutes ? parseInt(form.leftMinutes) : undefined,
         rightMinutes: form.rightMinutes ? parseInt(form.rightMinutes) : undefined,
       }),
-      ...((modal === 'bottle' || modal === 'pump') && {
+      ...(modal === 'bottle' && {
         amountMl: form.amountMl ? parseFloat(form.amountMl) : undefined,
+      }),
+      ...(modal === 'pump' && {
+        amountMl: form.amountMl ? parseFloat(form.amountMl) : undefined,
+        durationMinutes: form.pumpDuration ? parseInt(form.pumpDuration) : undefined,
       }),
       note: form.note || undefined,
     };
     await addRecord(entry);
     setModal(null);
-    resetForm();
     onRecordAdded();
     loadCounts();
     Alert.alert('✅ 기록 완료!', `${RECORD_LABELS[modal]} 기록이 저장됐어요.`);
@@ -115,7 +104,7 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
         <View style={styles.summaryBox}>
           <Text style={styles.summaryTitle}>오늘 기록 요약</Text>
           <View style={styles.summaryRow}>
-            {(['breastfeed', 'bottle', 'pee', 'poop', 'sleep'] as RecordType[]).map((type) => (
+            {RECORD_TYPES.map((type) => (
               <View key={type} style={styles.summaryItem}>
                 <Text style={styles.summaryIcon}>{RECORD_ICONS[type]}</Text>
                 <Text style={styles.summaryCount}>{todayCounts[type] ?? 0}</Text>
@@ -125,26 +114,14 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
           </View>
         </View>
 
-        {/* 수면 타이머 */}
-        <View style={[styles.sleepTimer, sleeping && styles.sleepTimerActive]}>
-          <Text style={styles.sleepTimerLabel}>{sleeping ? '😴 수면 중...' : '😴 수면 기록'}</Text>
-          {sleeping && <Text style={styles.sleepTimerCount}>{fmtSeconds(sleepSeconds)}</Text>}
-          <TouchableOpacity
-            style={[styles.sleepBtn, { backgroundColor: sleeping ? '#FF6B6B' : '#748FFC' }]}
-            onPress={handleSleepToggle}
-          >
-            <Text style={styles.sleepBtnText}>{sleeping ? '⏹ 수면 종료' : '▶ 수면 시작'}</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* 기록 버튼 그리드 */}
         <Text style={styles.sectionTitle}>기록하기</Text>
         <View style={styles.grid}>
-          {RECORD_TYPES.filter((t) => t !== 'sleep').map((type) => (
+          {RECORD_TYPES.map((type) => (
             <TouchableOpacity
               key={type}
               style={[styles.card, { backgroundColor: RECORD_COLORS[type] }]}
-              onPress={() => { setModal(type); resetForm(); }}
+              onPress={() => openModal(type)}
             >
               <Text style={styles.cardIcon}>{RECORD_ICONS[type]}</Text>
               <Text style={styles.cardLabel}>{RECORD_LABELS[type]}</Text>
@@ -160,39 +137,66 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
 
       <Modal visible={!!modal} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            {modal && (
-              <>
-                <Text style={styles.sheetTitle}>{RECORD_ICONS[modal]} {RECORD_LABELS[modal]} 기록</Text>
-                {modal === 'breastfeed' && (
-                  <>
-                    <Text style={styles.label}>왼쪽 수유 시간 (분)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
-                      value={form.leftMinutes} onChangeText={(v) => setForm((f) => ({ ...f, leftMinutes: v }))} />
-                    <Text style={styles.label}>오른쪽 수유 시간 (분)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
-                      value={form.rightMinutes} onChangeText={(v) => setForm((f) => ({ ...f, rightMinutes: v }))} />
-                  </>
-                )}
-                {(modal === 'bottle' || modal === 'pump') && (
-                  <>
-                    <Text style={styles.label}>양 (ml)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
-                      value={form.amountMl} onChangeText={(v) => setForm((f) => ({ ...f, amountMl: v }))} />
-                  </>
-                )}
-                <Text style={styles.label}>메모 (선택)</Text>
-                <TextInput style={[styles.input, styles.inputNote]} placeholder="특이사항 입력"
-                  value={form.note} onChangeText={(v) => setForm((f) => ({ ...f, note: v }))} multiline />
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: RECORD_COLORS[modal] }]} onPress={handleSave}>
-                  <Text style={styles.saveBtnText}>저장</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(null)}>
-                  <Text style={styles.cancelBtnText}>취소</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          <ScrollView>
+            <View style={styles.sheet}>
+              {modal && (
+                <>
+                  <Text style={styles.sheetTitle}>{RECORD_ICONS[modal]} {RECORD_LABELS[modal]} 기록</Text>
+
+                  {/* 시간 입력 - 모든 기록 공통 */}
+                  <Text style={styles.label}>언제 했나요? (HH:MM)</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="14:30"
+                    value={form.time}
+                    onChangeText={(v) => setForm((f) => ({ ...f, time: v }))}
+                  />
+
+                  {modal === 'breastfeed' && (
+                    <>
+                      <Text style={styles.label}>왼쪽 수유 시간 (분)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
+                        value={form.leftMinutes} onChangeText={(v) => setForm((f) => ({ ...f, leftMinutes: v }))} />
+                      <Text style={styles.label}>오른쪽 수유 시간 (분)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
+                        value={form.rightMinutes} onChangeText={(v) => setForm((f) => ({ ...f, rightMinutes: v }))} />
+                    </>
+                  )}
+
+                  {modal === 'bottle' && (
+                    <>
+                      <Text style={styles.label}>수유량 (ml)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
+                        value={form.amountMl} onChangeText={(v) => setForm((f) => ({ ...f, amountMl: v }))} />
+                    </>
+                  )}
+
+                  {modal === 'pump' && (
+                    <>
+                      <Text style={styles.label}>유축량 (ml)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
+                        value={form.amountMl} onChangeText={(v) => setForm((f) => ({ ...f, amountMl: v }))} />
+                      <Text style={styles.label}>유축 시간 (분)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" placeholder="0"
+                        value={form.pumpDuration} onChangeText={(v) => setForm((f) => ({ ...f, pumpDuration: v }))} />
+                    </>
+                  )}
+
+                  <Text style={styles.label}>메모 (선택)</Text>
+                  <TextInput style={[styles.input, styles.inputNote]} placeholder="특이사항 입력"
+                    value={form.note} onChangeText={(v) => setForm((f) => ({ ...f, note: v }))} multiline />
+
+                  <TouchableOpacity style={[styles.saveBtn, { backgroundColor: RECORD_COLORS[modal] }]} onPress={handleSave}>
+                    <Text style={styles.saveBtnText}>저장</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(null)}>
+                    <Text style={styles.cancelBtnText}>취소</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -205,17 +209,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', textAlign: 'center', marginTop: 16, marginBottom: 16, color: '#222' },
   summaryBox: { marginHorizontal: 16, backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
   summaryTitle: { fontSize: 13, color: '#999', fontWeight: '600', marginBottom: 12 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', gap: 8 },
   summaryItem: { alignItems: 'center', gap: 2 },
-  summaryIcon: { fontSize: 24 },
-  summaryCount: { fontSize: 20, fontWeight: '800', color: '#222' },
-  summaryLabel: { fontSize: 10, color: '#999' },
-  sleepTimer: { marginHorizontal: 16, backgroundColor: '#EEF0FF', borderRadius: 18, padding: 18, marginBottom: 16, alignItems: 'center' },
-  sleepTimerActive: { backgroundColor: '#D0D7FF' },
-  sleepTimerLabel: { fontSize: 16, fontWeight: '700', color: '#444', marginBottom: 8 },
-  sleepTimerCount: { fontSize: 36, fontWeight: '800', color: '#748FFC', marginBottom: 12, letterSpacing: 2 },
-  sleepBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 30 },
-  sleepBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  summaryIcon: { fontSize: 22 },
+  summaryCount: { fontSize: 18, fontWeight: '800', color: '#222' },
+  summaryLabel: { fontSize: 9, color: '#999' },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#666', marginLeft: 20, marginBottom: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingHorizontal: 16 },
   card: { width: 148, height: 148, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
