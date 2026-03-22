@@ -1,45 +1,37 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
+  View, Text, FlatList, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRecords, deleteRecord } from '../storage';
-import { RecordEntry, RECORD_LABELS, RECORD_ICONS, RECORD_COLORS } from '../types';
+import { RecordEntry, RECORD_LABELS, RECORD_ICONS } from '../types';
 
 const DS = {
-  bg: '#F7F8FF',
-  primary: '#6C5CE7',
-  secondary: '#A29BFE',
-  surface: '#FFFFFF',
-  danger: '#FF7675',
-  text: '#2D3436',
-  textMuted: '#636E72',
-  textLight: '#B2BEC3',
-  radius: { large: 24, medium: 16, small: 12 },
+  bg: '#FFFFFF',
+  bgSoft: '#F8F9FF',
+  primary: '#7C6FF7',
+  primaryLight: '#EEF0FF',
+  text: '#1A1A2E',
+  textSub: '#6B7280',
+  textLight: '#9CA3AF',
 };
 
-const TYPE_DOT_COLOR: Record<string, string> = {
-  breastfeed: '#FF8FAB',
-  bottle: '#5B9CF6',
-  pump: '#6BC46A',
-  pee: '#F6C644',
-  poop: '#B07D52',
-  vomit: '#9B8EC4',
+const TYPE_ACCENT: Record<string, string> = {
+  breastfeed: '#FF6B9D',
+  bottle: '#4D9FEC',
+  pump: '#52C76A',
+  pee: '#F0B429',
+  poop: '#D4875E',
+  vomit: '#9B7FE8',
 };
-
-function formatTimeFull(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
 
 function formatTimeOnly(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h < 12 ? '오전' : '오후';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${ampm} ${hour12}:${m}`;
 }
 
 function formatDateOnly(iso: string) {
@@ -81,12 +73,7 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
   async function handleDelete(id: string) {
     Alert.alert('삭제', '이 기록을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
-      {
-        text: '삭제', style: 'destructive', onPress: async () => {
-          await deleteRecord(id);
-          load();
-        },
-      },
+      { text: '삭제', style: 'destructive', onPress: async () => { await deleteRecord(id); load(); } },
     ]);
   }
 
@@ -94,12 +81,10 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
+      {/* Clean White Header */}
       <View style={styles.header}>
-        <View style={styles.headerDeco1} />
-        <View style={styles.headerDeco2} />
-        <Text style={styles.headerTitle}>기록 히스토리</Text>
-        <Text style={styles.headerSub}>총 {records.length}개의 기록</Text>
+        <Text style={styles.headerTitle}>기록</Text>
+        <Text style={styles.headerSub}>총 {records.length}건</Text>
       </View>
 
       {records.length === 0 ? (
@@ -116,44 +101,42 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
           showsVerticalScrollIndicator={false}
           renderItem={({ item: group }) => (
             <View style={styles.dateGroup}>
-              {/* Date header */}
+              {/* Date divider */}
               <View style={styles.dateHeader}>
-                <View style={styles.dateDivider} />
                 <Text style={styles.dateLabel}>{formatDateOnly(group.items[0].startTime)}</Text>
-                <View style={styles.dateDivider} />
+                <View style={styles.dateLine} />
               </View>
 
-              {/* Timeline items */}
-              <View style={styles.timeline}>
-                {group.items.map((item, idx) => (
+              {/* Timeline cards */}
+              {group.items.map((item, idx) => {
+                const accent = TYPE_ACCENT[item.type];
+                return (
                   <View key={item.id} style={styles.timelineRow}>
-                    {/* Left column: dot + line */}
-                    <View style={styles.timelineLeft}>
-                      <View style={[styles.dot, { backgroundColor: TYPE_DOT_COLOR[item.type] }]} />
-                      {idx < group.items.length - 1 && <View style={styles.line} />}
+                    {/* Timeline left: dot + line */}
+                    <View style={styles.tlLeft}>
+                      <View style={[styles.tlDot, { backgroundColor: accent }]} />
+                      {idx < group.items.length - 1 && <View style={styles.tlLine} />}
                     </View>
 
                     {/* Card */}
-                    <View style={[styles.card, { borderLeftColor: TYPE_DOT_COLOR[item.type] }]}>
-                      <View style={styles.cardHeader}>
+                    <View style={[styles.card, { borderLeftColor: accent }]}>
+                      <View style={styles.cardTop}>
                         <View style={styles.cardTitleRow}>
-                          <Text style={styles.cardIcon}>{RECORD_ICONS[item.type]}</Text>
-                          <Text style={styles.cardLabel}>{RECORD_LABELS[item.type]}</Text>
+                          <Text style={styles.cardEmoji}>{RECORD_ICONS[item.type]}</Text>
+                          <Text style={styles.cardName}>{RECORD_LABELS[item.type]}</Text>
                         </View>
-                        <View style={styles.cardRight}>
-                          <Text style={styles.cardTime}>{formatTimeOnly(item.startTime)}</Text>
-                          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                            <Text style={styles.deleteText}>삭제</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <Text style={[styles.cardTime, { color: accent }]}>{formatTimeOnly(item.startTime)}</Text>
                       </View>
                       {getDetail(item) ? (
                         <Text style={styles.cardDetail}>{getDetail(item)}</Text>
                       ) : null}
+                      <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={styles.deleteText}>삭제</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                ))}
-              </View>
+                );
+              })}
             </View>
           )}
         />
@@ -166,71 +149,54 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
 
   header: {
-    backgroundColor: DS.primary,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginBottom: 16,
-    overflow: 'hidden',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
-  headerDeco1: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.07)', top: -25, right: 60 },
-  headerDeco2: { position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.06)', bottom: -15, right: 20 },
-  headerTitle: { fontSize: 26, fontWeight: '900', color: '#FFFFFF' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.70)', marginTop: 4 },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: DS.text },
+  headerSub: { fontSize: 14, color: DS.primary, fontWeight: '700' },
 
   list: { paddingHorizontal: 20, paddingBottom: 40 },
 
   dateGroup: { marginBottom: 8 },
   dateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10,
   },
-  dateDivider: { flex: 1, height: 1, backgroundColor: '#E8EAFF' },
   dateLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: DS.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: '#EEF0FF',
-    borderRadius: 8,
+    fontSize: 13, fontWeight: '700', color: DS.primary,
+    backgroundColor: DS.primaryLight,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
   },
+  dateLine: { flex: 1, height: 1, backgroundColor: '#EEF0FF' },
 
-  timeline: { gap: 0 },
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
-  timelineLeft: { width: 28, alignItems: 'center', paddingTop: 16 },
-  dot: { width: 14, height: 14, borderRadius: 7, zIndex: 1, borderWidth: 2, borderColor: '#FFFFFF' },
-  line: { width: 2, flex: 1, backgroundColor: '#E0E3FF', marginTop: 6, minHeight: 30 },
+  timelineRow: { flexDirection: 'row', marginBottom: 10 },
+  tlLeft: { width: 24, alignItems: 'center', paddingTop: 18 },
+  tlDot: {
+    width: 12, height: 12, borderRadius: 6,
+    borderWidth: 2, borderColor: '#FFFFFF',
+    zIndex: 1,
+  },
+  tlLine: { width: 2, flex: 1, backgroundColor: '#EEF0FF', marginTop: 4, minHeight: 24 },
 
   card: {
-    flex: 1,
-    backgroundColor: DS.surface,
-    borderRadius: DS.radius.medium,
-    padding: 14,
-    marginLeft: 10,
+    flex: 1, backgroundColor: DS.bgSoft,
+    borderRadius: 16, padding: 14, marginLeft: 10,
     borderLeftWidth: 3,
-    shadowColor: '#6C5CE7',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardIcon: { fontSize: 20 },
-  cardLabel: { fontSize: 16, fontWeight: '700', color: DS.text },
-  cardRight: { alignItems: 'flex-end', gap: 4 },
-  cardTime: { fontSize: 15, fontWeight: '700', color: DS.primary },
-  cardDetail: { fontSize: 13, color: DS.textMuted, marginTop: 6 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardEmoji: { fontSize: 20 },
+  cardName: { fontSize: 16, fontWeight: '700', color: DS.text },
+  cardTime: { fontSize: 14, fontWeight: '700' },
+  cardDetail: { fontSize: 13, color: DS.textSub, marginTop: 6 },
 
-  deleteBtn: { padding: 2 },
-  deleteText: { color: DS.danger, fontSize: 12, fontWeight: '600' },
+  deleteText: { color: '#E5484D', fontSize: 12, fontWeight: '600', marginTop: 8 },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
-  emptyEmoji: { fontSize: 72, marginBottom: 20 },
-  emptyTitle: { fontSize: 22, color: DS.textMuted, fontWeight: '800', marginBottom: 10 },
-  emptyHint: { fontSize: 14, color: DS.textLight, textAlign: 'center', paddingHorizontal: 40 },
+  emptyEmoji: { fontSize: 64, marginBottom: 16 },
+  emptyTitle: { fontSize: 20, color: DS.textSub, fontWeight: '700', marginBottom: 8 },
+  emptyHint: { fontSize: 14, color: DS.textLight },
 });

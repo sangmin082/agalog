@@ -11,15 +11,29 @@ import GrowthScreen from './src/screens/GrowthScreen';
 
 const Tab = createBottomTabNavigator();
 
-const PRIMARY = '#6C5CE7';
-const INACTIVE = '#B2BEC3';
+const PRIMARY = '#7C6FF7';
+const INACTIVE = '#C5C9D6';
+
+function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
+      {focused && (
+        <View style={{
+          width: 5, height: 5, borderRadius: 3,
+          backgroundColor: PRIMARY, marginTop: 3,
+        }} />
+      )}
+    </View>
+  );
+}
 
 export default function App() {
   const [refresh, setRefresh] = useState(0);
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
@@ -27,20 +41,21 @@ export default function App() {
             tabBarActiveTintColor: PRIMARY,
             tabBarInactiveTintColor: INACTIVE,
             tabBarStyle: {
-              paddingBottom: 8,
-              paddingTop: 6,
-              height: 64,
+              paddingBottom: 10,
+              paddingTop: 8,
+              height: 72,
               backgroundColor: '#FFFFFF',
               borderTopWidth: 0,
-              shadowColor: '#6C5CE7',
-              shadowOpacity: 0.10,
+              shadowColor: '#1A1A2E',
+              shadowOpacity: 0.05,
+              shadowOffset: { width: 0, height: -2 },
               shadowRadius: 16,
               elevation: 12,
             },
             tabBarLabelStyle: {
-              fontSize: 12,
-              fontWeight: '700',
-              marginTop: 1,
+              fontSize: 11,
+              fontWeight: '600',
+              marginTop: 0,
             },
           }}
         >
@@ -48,9 +63,7 @@ export default function App() {
             name="Home"
             options={{
               title: '홈',
-              tabBarIcon: ({ focused }) => (
-                <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>🏠</Text>
-              ),
+              tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
             }}
           >
             {() => <HomeScreen onRecordAdded={() => setRefresh((n) => n + 1)} />}
@@ -59,9 +72,7 @@ export default function App() {
             name="History"
             options={{
               title: '기록',
-              tabBarIcon: ({ focused }) => (
-                <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>📋</Text>
-              ),
+              tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
             }}
           >
             {() => <HistoryScreen refresh={refresh} />}
@@ -70,9 +81,7 @@ export default function App() {
             name="Stats"
             options={{
               title: '분석',
-              tabBarIcon: ({ focused }) => (
-                <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>📊</Text>
-              ),
+              tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
             }}
           >
             {() => <StatsScreen refresh={refresh} />}
@@ -81,9 +90,7 @@ export default function App() {
             name="Growth"
             options={{
               title: '성장',
-              tabBarIcon: ({ focused }) => (
-                <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>📏</Text>
-              ),
+              tabBarIcon: ({ focused }) => <TabIcon emoji="📏" focused={focused} />,
             }}
           >
             {() => <GrowthScreen />}
