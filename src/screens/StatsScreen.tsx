@@ -3,17 +3,29 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { getRecords } from '../storage';
-import { RecordEntry, RecordType, RECORD_COLORS, RECORD_ICONS, RECORD_LABELS } from '../types';
+import { RecordEntry, RecordType, RECORD_ICONS, RECORD_LABELS } from '../types';
 
-const W = Dimensions.get('window').width - 32;
+const DS = {
+  bg: '#F7F8FF',
+  primary: '#6C5CE7',
+  secondary: '#A29BFE',
+  surface: '#FFFFFF',
+  text: '#2D3436',
+  textMuted: '#636E72',
+  textLight: '#B2BEC3',
+  radius: { large: 24, medium: 16, small: 12 },
+};
 
-const CHART_CONFIG = {
-  backgroundGradientFrom: '#fff',
-  backgroundGradientTo: '#fff',
-  color: (opacity = 1) => `rgba(116, 143, 252, ${opacity})`,
-  labelColor: () => '#888',
+const W = Dimensions.get('window').width - 40;
+
+const CHART_BASE = {
+  backgroundGradientFrom: '#FFFFFF',
+  backgroundGradientTo: '#F7F8FF',
+  color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`,
+  labelColor: () => '#636E72',
   strokeWidth: 2,
-  propsForDots: { r: '4', strokeWidth: '2', stroke: '#748FFC' },
+  propsForDots: { r: '5', strokeWidth: '2', stroke: '#6C5CE7' },
+  propsForBackgroundLines: { stroke: '#F0F0FF', strokeWidth: 1 },
 };
 
 function getLast7Days(): string[] {
@@ -74,7 +86,6 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
   const pumpMl = totalMlByDay(records, 'pump', days);
   const bottleMl = totalMlByDay(records, 'bottle', days);
 
-  // today stats
   const today = new Date().toDateString();
   const todayRecords = records.filter((r) => new Date(r.startTime).toDateString() === today);
   const totalBreastfeedMin = todayRecords
@@ -87,7 +98,6 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
     .filter((r) => r.type === 'pump')
     .reduce((s, r) => s + (r.amountMl ?? 0), 0);
 
-  // hourly distribution for breastfeed
   const hourlyBreastfeed = getHourlyDistribution(records, 'breastfeed');
   const hourlyLabels = ['0시', '3시', '6시', '9시', '12시', '15시', '18시', '21시'];
   const hourlyData = [0, 3, 6, 9, 12, 15, 18, 21].map((h) =>
@@ -96,78 +106,91 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
 
   const hasData = records.length > 0;
 
+  const todayStatItems = [
+    { icon: '🤱', label: '모유수유', val: `${todayRecords.filter(r => r.type === 'breastfeed').length}회`, sub: totalBreastfeedMin > 0 ? `${totalBreastfeedMin}분` : null, color: '#FF8FAB', bg: '#FFF0F5' },
+    { icon: '🍼', label: '수유', val: `${todayRecords.filter(r => r.type === 'bottle').length}회`, sub: totalBottleMl > 0 ? `${totalBottleMl}ml` : null, color: '#5B9CF6', bg: '#EEF6FF' },
+    { icon: '💛', label: '소변', val: `${todayRecords.filter(r => r.type === 'pee').length}회`, sub: null, color: '#D4A017', bg: '#FFFBEE' },
+    { icon: '💩', label: '대변', val: `${todayRecords.filter(r => r.type === 'poop').length}회`, sub: null, color: '#8B6040', bg: '#FBF5EE' },
+  ];
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>패턴 분석 📊</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>패턴 분석</Text>
+          <Text style={styles.headerSub}>아가의 하루를 한눈에</Text>
+        </View>
 
-        {/* 오늘 요약 카드 */}
-        <View style={styles.todayCard}>
-          <Text style={styles.cardTitle}>오늘 요약</Text>
-          <View style={styles.todayRow}>
-            <View style={styles.todayStat}>
-              <Text style={styles.todayVal}>{todayRecords.filter(r=>r.type==='breastfeed').length}회</Text>
-              <Text style={styles.todayKey}>🤱 모유수유</Text>
-              {totalBreastfeedMin > 0 && <Text style={styles.todaySub}>{totalBreastfeedMin}분</Text>}
-            </View>
-            <View style={styles.todayStat}>
-              <Text style={styles.todayVal}>{todayRecords.filter(r=>r.type==='bottle').length}회</Text>
-              <Text style={styles.todayKey}>🍼 수유</Text>
-              {totalBottleMl > 0 && <Text style={styles.todaySub}>{totalBottleMl}ml</Text>}
-            </View>
-            <View style={styles.todayStat}>
-              <Text style={styles.todayVal}>{todayRecords.filter(r=>r.type==='pee').length}회</Text>
-              <Text style={styles.todayKey}>💛 소변</Text>
-            </View>
-            <View style={styles.todayStat}>
-              <Text style={styles.todayVal}>{todayRecords.filter(r=>r.type==='poop').length}회</Text>
-              <Text style={styles.todayKey}>💩 대변</Text>
-            </View>
+        {/* Today summary cards */}
+        <View style={styles.todaySection}>
+          <Text style={styles.sectionLabel}>오늘 요약</Text>
+          <View style={styles.todayGrid}>
+            {todayStatItems.map((item) => (
+              <View key={item.label} style={[styles.todayCard, { borderTopColor: item.color, borderTopWidth: 3, backgroundColor: item.bg }]}>
+                <Text style={styles.todayIcon}>{item.icon}</Text>
+                <Text style={[styles.todayVal, { color: item.color }]}>{item.val}</Text>
+                <Text style={styles.todayKey}>{item.label}</Text>
+                {item.sub && <Text style={styles.todaySub}>{item.sub}</Text>}
+              </View>
+            ))}
           </View>
           {totalPumpMl > 0 && (
-            <Text style={styles.pumpStat}>🏺 오늘 유축 총 {totalPumpMl}ml</Text>
+            <View style={styles.pumpBanner}>
+              <Text style={styles.pumpBannerText}>🏺  오늘 유축 총 {totalPumpMl}ml</Text>
+            </View>
           )}
         </View>
 
-        {/* 탭 */}
+        {/* Tabs */}
         <View style={styles.tabs}>
           <TouchableOpacity style={[styles.tabBtn, tab === 'daily' && styles.tabActive]} onPress={() => setTab('daily')}>
-            <Text style={[styles.tabText, tab === 'daily' && styles.tabTextActive]}>일별 추이</Text>
+            <Text style={[styles.tabText, tab === 'daily' && styles.tabTextActive]}>📅 일별 추이</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tabBtn, tab === 'hourly' && styles.tabActive]} onPress={() => setTab('hourly')}>
-            <Text style={[styles.tabText, tab === 'hourly' && styles.tabTextActive]}>시간대 패턴</Text>
+            <Text style={[styles.tabText, tab === 'hourly' && styles.tabTextActive]}>🕐 시간대 패턴</Text>
           </TouchableOpacity>
         </View>
 
         {!hasData ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>기록을 추가하면 그래프가 나타나요!</Text>
+            <Text style={styles.emptyEmoji}>📊</Text>
+            <Text style={styles.emptyText}>기록을 추가하면{'\n'}그래프가 나타나요!</Text>
           </View>
         ) : tab === 'daily' ? (
           <>
-            {/* 수유 횟수 */}
             <View style={styles.chartBox}>
-              <Text style={styles.chartTitle}>🤱🍼 수유 횟수 (7일)</Text>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>수유 횟수 추이</Text>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: '#FF8FAB' }]} />
+                  <Text style={styles.legendText}>모유</Text>
+                  <View style={[styles.legendDot, { backgroundColor: '#5B9CF6' }]} />
+                  <Text style={styles.legendText}>수유</Text>
+                </View>
+              </View>
               <LineChart
                 data={{
                   labels,
                   datasets: [
                     { data: breastfeedCounts, color: () => '#FF8FAB', strokeWidth: 2 },
-                    { data: bottleCounts, color: () => '#74C0FC', strokeWidth: 2 },
+                    { data: bottleCounts, color: () => '#5B9CF6', strokeWidth: 2 },
                   ],
                   legend: ['모유수유', '수유'],
                 }}
                 width={W}
                 height={180}
-                chartConfig={CHART_CONFIG}
+                chartConfig={CHART_BASE}
                 bezier
                 style={styles.chart}
+                withLegend={false}
               />
             </View>
 
-            {/* 소변/대변 */}
             <View style={styles.chartBox}>
-              <Text style={styles.chartTitle}>💛💩 소변/대변 횟수 (7일)</Text>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>소변 횟수 (7일)</Text>
+              </View>
               <BarChart
                 data={{
                   labels,
@@ -175,22 +198,23 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                 }}
                 width={W}
                 height={180}
-                chartConfig={{ ...CHART_CONFIG, color: (o = 1) => `rgba(255, 212, 59, ${o})` }}
+                chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(246, 198, 68, ${o})` }}
                 style={styles.chart}
                 yAxisLabel=""
                 yAxisSuffix="회"
               />
             </View>
 
-            {/* 유축량 */}
             {pumpMl.some((v) => v > 0) && (
               <View style={styles.chartBox}>
-                <Text style={styles.chartTitle}>🏺 유축량 (7일, ml)</Text>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>유축량 (7일, ml)</Text>
+                </View>
                 <BarChart
                   data={{ labels, datasets: [{ data: pumpMl }] }}
                   width={W}
                   height={180}
-                  chartConfig={{ ...CHART_CONFIG, color: (o = 1) => `rgba(169, 227, 75, ${o})` }}
+                  chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(107, 196, 106, ${o})` }}
                   style={styles.chart}
                   yAxisLabel=""
                   yAxisSuffix="ml"
@@ -200,36 +224,55 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
           </>
         ) : (
           <>
-            {/* 시간대별 수유 패턴 */}
             <View style={styles.chartBox}>
-              <Text style={styles.chartTitle}>🤱 수유 시간대 분포</Text>
-              <Text style={styles.chartSub}>3시간 단위</Text>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>수유 시간대 분포</Text>
+                <Text style={styles.chartSub}>3시간 단위</Text>
+              </View>
               <BarChart
                 data={{ labels: hourlyLabels, datasets: [{ data: hourlyData }] }}
                 width={W}
                 height={200}
-                chartConfig={{ ...CHART_CONFIG, color: (o = 1) => `rgba(255, 143, 171, ${o})` }}
+                chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(255, 143, 171, ${o})` }}
                 style={styles.chart}
                 yAxisLabel=""
                 yAxisSuffix="회"
               />
             </View>
 
-            {/* 인사이트 */}
             <View style={styles.insightBox}>
-              <Text style={styles.insightTitle}>💡 인사이트</Text>
+              <Text style={styles.insightTitle}>💡  인사이트</Text>
               {(() => {
                 const maxHourIdx = hourlyData.indexOf(Math.max(...hourlyData));
                 const maxHour = hourlyLabels[maxHourIdx];
-                const avg = records.filter(r => r.type === 'breastfeed').length / Math.max(days.filter(d => breastfeedCounts[days.indexOf(d)] > 0).length, 1);
+                const activeDays = days.filter(d => breastfeedCounts[days.indexOf(d)] > 0).length;
+                const avg = records.filter(r => r.type === 'breastfeed').length / Math.max(activeDays, 1);
                 return (
-                  <>
+                  <View style={styles.insightItems}>
                     {Math.max(...hourlyData) > 0 && (
-                      <Text style={styles.insightItem}>• 수유가 가장 많은 시간대: <Text style={styles.insightVal}>{maxHour}</Text></Text>
+                      <View style={styles.insightItem}>
+                        <Text style={styles.insightItemIcon}>⏰</Text>
+                        <View>
+                          <Text style={styles.insightItemLabel}>가장 많은 수유 시간대</Text>
+                          <Text style={styles.insightItemVal}>{maxHour}</Text>
+                        </View>
+                      </View>
                     )}
-                    <Text style={styles.insightItem}>• 하루 평균 수유: <Text style={styles.insightVal}>{avg.toFixed(1)}회</Text></Text>
-                    <Text style={styles.insightItem}>• 총 기록 수: <Text style={styles.insightVal}>{records.length}건</Text></Text>
-                  </>
+                    <View style={styles.insightItem}>
+                      <Text style={styles.insightItemIcon}>📈</Text>
+                      <View>
+                        <Text style={styles.insightItemLabel}>하루 평균 수유 횟수</Text>
+                        <Text style={styles.insightItemVal}>{avg.toFixed(1)}회</Text>
+                      </View>
+                    </View>
+                    <View style={styles.insightItem}>
+                      <Text style={styles.insightItemIcon}>📝</Text>
+                      <View>
+                        <Text style={styles.insightItemLabel}>총 기록 수</Text>
+                        <Text style={styles.insightItemVal}>{records.length}건</Text>
+                      </View>
+                    </View>
+                  </View>
                 );
               })()}
             </View>
@@ -241,30 +284,97 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16, color: '#222' },
-  todayCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  cardTitle: { fontSize: 13, color: '#999', fontWeight: '600', marginBottom: 12 },
-  todayRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  todayStat: { alignItems: 'center' },
-  todayVal: { fontSize: 20, fontWeight: '800', color: '#222' },
-  todayKey: { fontSize: 11, color: '#888', marginTop: 2 },
-  todaySub: { fontSize: 11, color: '#748FFC', marginTop: 2, fontWeight: '600' },
-  pumpStat: { textAlign: 'center', marginTop: 12, fontSize: 13, color: '#555' },
-  tabs: { flexDirection: 'row', backgroundColor: '#eee', borderRadius: 12, padding: 4, marginBottom: 16 },
-  tabBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
-  tabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 14, color: '#888', fontWeight: '600' },
-  tabTextActive: { color: '#748FFC' },
-  chartBox: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  chartTitle: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 4 },
-  chartSub: { fontSize: 12, color: '#aaa', marginBottom: 8 },
+  safe: { flex: 1, backgroundColor: DS.bg },
+  scroll: { paddingBottom: 40 },
+
+  header: {
+    backgroundColor: DS.primary,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 20,
+  },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: '#FFFFFF' },
+  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.70)', marginTop: 4 },
+
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: DS.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  todaySection: { paddingHorizontal: 20, marginBottom: 20 },
+  todayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  todayCard: {
+    flex: 1,
+    minWidth: '44%',
+    borderRadius: DS.radius.medium,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#6C5CE7',
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  todayIcon: { fontSize: 28, marginBottom: 8 },
+  todayVal: { fontSize: 28, fontWeight: '900' },
+  todayKey: { fontSize: 12, color: DS.textMuted, marginTop: 4, fontWeight: '600' },
+  todaySub: { fontSize: 13, color: DS.primary, fontWeight: '700', marginTop: 4 },
+  pumpBanner: {
+    backgroundColor: '#EDFFF6',
+    borderRadius: DS.radius.small,
+    padding: 12,
+    marginTop: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#00B894',
+  },
+  pumpBannerText: { fontSize: 14, color: '#00B894', fontWeight: '700' },
+
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#EDEDFF',
+    borderRadius: DS.radius.medium,
+    padding: 4,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  tabBtn: { flex: 1, padding: 10, borderRadius: 12, alignItems: 'center' },
+  tabActive: { backgroundColor: DS.surface, shadowColor: '#6C5CE7', shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  tabText: { fontSize: 13, color: DS.textMuted, fontWeight: '600' },
+  tabTextActive: { color: DS.primary, fontWeight: '700' },
+
+  chartBox: {
+    backgroundColor: DS.surface,
+    borderRadius: DS.radius.large,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: '#6C5CE7',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  chartTitle: { fontSize: 15, fontWeight: '700', color: DS.text },
+  chartSub: { fontSize: 12, color: DS.textLight },
   chart: { borderRadius: 12, marginLeft: -8 },
-  insightBox: { backgroundColor: '#EEF0FF', borderRadius: 18, padding: 18 },
-  insightTitle: { fontSize: 15, fontWeight: '700', color: '#748FFC', marginBottom: 12 },
-  insightItem: { fontSize: 14, color: '#444', marginBottom: 8, lineHeight: 22 },
-  insightVal: { fontWeight: '800', color: '#748FFC' },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 15, color: '#aaa' },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11, color: DS.textMuted },
+
+  insightBox: {
+    backgroundColor: '#EEF0FF',
+    borderRadius: DS.radius.large,
+    padding: 20,
+    marginHorizontal: 20,
+  },
+  insightTitle: { fontSize: 16, fontWeight: '800', color: DS.primary, marginBottom: 16 },
+  insightItems: { gap: 14 },
+  insightItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  insightItemIcon: { fontSize: 28, width: 40, textAlign: 'center' },
+  insightItemLabel: { fontSize: 12, color: DS.textMuted, marginBottom: 2 },
+  insightItemVal: { fontSize: 18, fontWeight: '800', color: DS.primary },
+
+  empty: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 40 },
+  emptyEmoji: { fontSize: 64, marginBottom: 16 },
+  emptyText: { fontSize: 16, color: DS.textMuted, textAlign: 'center', lineHeight: 26, fontWeight: '600' },
 });
