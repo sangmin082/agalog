@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Modal, TextInput, Alert, ScrollView, Dimensions,
+  Modal, TextInput, Alert, ScrollView, Dimensions, Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
@@ -34,6 +35,8 @@ export default function GrowthScreen() {
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [headCm, setHeadCm] = useState('');
+  const [entryDate, setEntryDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [chartTab, setChartTab] = useState<ChartTab>('weight');
 
   const load = useCallback(async () => { setEntries(await getGrowthEntries()); }, []);
@@ -46,7 +49,7 @@ export default function GrowthScreen() {
     }
     const entry: GrowthEntry = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
+      date: entryDate.toISOString(),
       weightKg: weightKg ? parseFloat(weightKg) : undefined,
       heightCm: heightCm ? parseFloat(heightCm) : undefined,
       headCm: headCm ? parseFloat(headCm) : undefined,
@@ -54,6 +57,7 @@ export default function GrowthScreen() {
     await addGrowthEntry(entry);
     setModal(false);
     setWeightKg(''); setHeightCm(''); setHeadCm('');
+    setEntryDate(new Date());
     load();
   }, [weightKg, heightCm, headCm, load]);
 
@@ -276,6 +280,15 @@ export default function GrowthScreen() {
               <View style={styles.sheetHandle} />
               <Text style={styles.sheetTitle}>성장 기록 추가</Text>
 
+              <Text style={styles.fieldLabel}>측정 날짜</Text>
+              <TouchableOpacity style={styles.fieldRow} onPress={() => setShowDatePicker(true)}>
+                <Ionicons name="calendar-outline" size={20} color={DS.primary} style={{ marginRight: 10 }} />
+                <Text style={[styles.fieldInput, { paddingVertical: 14, color: DS.text }]}>
+                  {entryDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={DS.textLight} />
+              </TouchableOpacity>
+
               {[
                 { label: '몸무게 (kg)', icon: 'scale-outline' as const, color: '#FF6B9D', value: weightKg, setter: setWeightKg, placeholder: '예: 4.5' },
                 { label: '키 (cm)', icon: 'resize-outline' as const, color: '#4D9FEC', value: heightCm, setter: setHeightCm, placeholder: '예: 55.0' },
@@ -307,6 +320,39 @@ export default function GrowthScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Date picker — Android */}
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={entryDate}
+          mode="date"
+          display="calendar"
+          maximumDate={new Date()}
+          onChange={(_, date) => { setShowDatePicker(false); if (date) setEntryDate(date); }}
+        />
+      )}
+
+      {/* Date picker — iOS / Web */}
+      {showDatePicker && Platform.OS !== 'android' && (
+        <Modal transparent animationType="slide">
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerSheet}>
+              <Text style={styles.pickerTitle}>측정 날짜 선택</Text>
+              <DateTimePicker
+                value={entryDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                maximumDate={new Date()}
+                onChange={(_, date) => { if (date) setEntryDate(date); }}
+                locale="ko-KR"
+              />
+              <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.pickerDoneBtnText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -420,4 +466,13 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
   cancelBtn: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   cancelBtnText: { color: DS.textSub, fontSize: 15 },
+
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  pickerSheet: {
+    backgroundColor: DS.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40,
+  },
+  pickerTitle: { fontSize: 17, fontWeight: '800', color: DS.text, marginBottom: 12, textAlign: 'center' },
+  pickerDoneBtn: { backgroundColor: DS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
+  pickerDoneBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
