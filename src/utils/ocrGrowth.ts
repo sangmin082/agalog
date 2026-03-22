@@ -2,9 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 
 const GEMINI_KEY_STORAGE = 'agalog_gemini_api_key';
+const DEFAULT_GEMINI_KEY = 'REMOVED_KEY';
 
 export async function getGeminiApiKey(): Promise<string | null> {
-  return AsyncStorage.getItem(GEMINI_KEY_STORAGE);
+  const stored = await AsyncStorage.getItem(GEMINI_KEY_STORAGE);
+  return stored || DEFAULT_GEMINI_KEY;
 }
 
 export async function saveGeminiApiKey(key: string): Promise<void> {
