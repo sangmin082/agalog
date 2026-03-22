@@ -25,7 +25,12 @@ async function hashPassword(password: string): Promise<string> {
 
 export async function getAuthUser(): Promise<AuthUser | null> {
   const raw = await AsyncStorage.getItem(AUTH_KEY);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export async function signupWithEmail(
@@ -50,8 +55,9 @@ export async function signupWithEmail(
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
+  const normalizedEmail = email.trim().toLowerCase();
   const user = await getAuthUser();
-  if (!user || user.email !== email) throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
+  if (!user || user.email !== normalizedEmail) throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
   const hash = await hashPassword(password);
   if (hash !== user.passwordHash) throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
   return user;
@@ -80,7 +86,12 @@ export async function logout(): Promise<void> {
 
 export async function getBabyProfile(): Promise<BabyProfile | null> {
   const raw = await AsyncStorage.getItem(BABY_KEY);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export async function saveBabyProfile(profile: BabyProfile): Promise<void> {

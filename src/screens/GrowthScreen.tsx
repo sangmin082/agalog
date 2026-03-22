@@ -269,7 +269,7 @@ export default function GrowthScreen() {
       {/* Add Modal */}
       <Modal visible={modal} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={styles.overlayTap} onStartShouldSetResponder={() => { setModal(false); return true; }} />
+          <View style={styles.overlayTap} onStartShouldSetResponder={() => { setModal(false); setWeightKg(''); setHeightCm(''); setHeadCm(''); setEntryDate(new Date()); return true; }} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.sheet}>
               <View style={styles.sheetHandle} />
@@ -308,7 +308,7 @@ export default function GrowthScreen() {
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                 <Text style={styles.saveBtnText}>저장하기</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(false)}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setModal(false); setWeightKg(''); setHeightCm(''); setHeadCm(''); setEntryDate(new Date()); }}>
                 <Text style={styles.cancelBtnText}>취소</Text>
               </TouchableOpacity>
             </View>

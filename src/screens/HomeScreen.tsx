@@ -48,10 +48,12 @@ function getTodayDate(): string {
 }
 
 function calcBabyAge(birthday: string): string {
-  const birth = new Date(birthday);
+  // Use date-only comparison to avoid timezone/time-of-day issues
+  const birth = new Date(birthday + 'T00:00:00');
   const now = new Date();
-  const diffMs = now.getTime() - birth.getTime();
-  const diffDays = Math.floor(diffMs / 86400000);
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const birthMidnight = new Date(birth.getFullYear(), birth.getMonth(), birth.getDate());
+  const diffDays = Math.round((todayMidnight.getTime() - birthMidnight.getTime()) / 86400000);
   if (diffDays < 0) return 'D-' + Math.abs(diffDays);
   return 'D+' + diffDays;
 }
@@ -133,6 +135,11 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
       Alert.alert('시간 형식 오류', 'HH:MM 형식으로 입력해주세요.');
       return;
     }
+    const [h, m] = form.time.split(':').map(Number);
+    if (h < 0 || h > 23 || m < 0 || m > 59) {
+      Alert.alert('시간 범위 오류', '올바른 시간을 입력해주세요. (00:00~23:59)');
+      return;
+    }
 
     Animated.sequence([
       Animated.timing(saveFlash, { toValue: 0.5, duration: 100, useNativeDriver: true }),
@@ -156,12 +163,13 @@ export default function HomeScreen({ onRecordAdded }: { onRecordAdded: () => voi
     };
     await addRecord(entry);
 
+    const recordedType = modal;
+    setModal(null);
+    onRecordAdded();
+    loadData();
     setTimeout(() => {
-      setModal(null);
-      onRecordAdded();
-      loadData();
-      Alert.alert('기록 완료', `${RECORD_LABELS[modal]} 기록이 저장됐어요.`);
-    }, 250);
+      Alert.alert('기록 완료', `${RECORD_LABELS[recordedType]} 기록이 저장됐어요.`);
+    }, 300);
   }, [modal, form, onRecordAdded, loadData, saveFlash]);
 
   const handleSaveBirthday = useCallback(async () => {

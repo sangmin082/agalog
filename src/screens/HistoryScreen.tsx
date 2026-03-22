@@ -95,6 +95,7 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
                 const theme = CARD_THEME[item.type];
                 const accent = theme?.accent ?? DS.textSub;
                 const relTime = getRelativeTime(item.startTime);
+                const detail = getDetail(item);
                 return (
                   <View key={item.id} style={styles.timelineRow}>
                     {/* Timeline left: dot + line */}
@@ -121,8 +122,8 @@ export default function HistoryScreen({ refresh }: { refresh: number }) {
                           <Text style={styles.cardAbsTime}>{formatTimeOnly(item.startTime)}</Text>
                         </View>
                       </View>
-                      {getDetail(item) ? (
-                        <Text style={styles.cardDetail}>{getDetail(item)}</Text>
+                      {detail ? (
+                        <Text style={styles.cardDetail}>{detail}</Text>
                       ) : null}
                       <TouchableOpacity
                         onPress={() => handleDelete(item.id)}

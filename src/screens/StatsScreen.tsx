@@ -75,8 +75,10 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
   const peeCounts = useMemo(() => countByDay(records, 'pee', days), [records, days]);
   const pumpMl = useMemo(() => totalMlByDay(records, 'pump', days), [records, days]);
 
-  const today = new Date().toDateString();
-  const todayRecords = useMemo(() => records.filter((r) => new Date(r.startTime).toDateString() === today), [records, today]);
+  const todayRecords = useMemo(() => {
+    const today = new Date().toDateString();
+    return records.filter((r) => new Date(r.startTime).toDateString() === today);
+  }, [records]);
 
   const totalBreastfeedMin = useMemo(() =>
     todayRecords.filter((r) => r.type === 'breastfeed')
@@ -217,8 +219,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                 data={{
                   labels,
                   datasets: [
-                    { data: breastfeedCounts.every(v => v === 0) ? [0] : breastfeedCounts, color: () => CARD_THEME.breastfeed.accent, strokeWidth: 2 },
-                    { data: bottleCounts.every(v => v === 0) ? [0] : bottleCounts, color: () => CARD_THEME.bottle.accent, strokeWidth: 2 },
+                    { data: breastfeedCounts.every(v => v === 0) ? new Array(7).fill(0) : breastfeedCounts, color: () => CARD_THEME.breastfeed.accent, strokeWidth: 2 },
+                    { data: bottleCounts.every(v => v === 0) ? new Array(7).fill(0) : bottleCounts, color: () => CARD_THEME.bottle.accent, strokeWidth: 2 },
                   ],
                   legend: [],
                 }}
@@ -230,7 +232,7 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
             <View style={styles.chartBox}>
               <Text style={styles.chartTitle}>소변 횟수 (7일)</Text>
               <BarChart
-                data={{ labels, datasets: [{ data: peeCounts.every(v => v === 0) ? [0] : peeCounts }] }}
+                data={{ labels, datasets: [{ data: peeCounts.every(v => v === 0) ? new Array(7).fill(0) : peeCounts }] }}
                 width={W} height={180}
                 chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(240, 180, 41, ${o})` }}
                 style={styles.chart} yAxisLabel="" yAxisSuffix="회"
@@ -257,7 +259,7 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                 <Text style={styles.chartSub}>3시간 단위</Text>
               </View>
               <BarChart
-                data={{ labels: hourlyLabels, datasets: [{ data: hourlyData.every(v => v === 0) ? [0] : hourlyData }] }}
+                data={{ labels: hourlyLabels, datasets: [{ data: hourlyData.every(v => v === 0) ? new Array(8).fill(0) : hourlyData }] }}
                 width={W} height={200}
                 chartConfig={{ ...CHART_BASE, color: (o = 1) => `rgba(229, 72, 77, ${o})` }}
                 style={styles.chart} yAxisLabel="" yAxisSuffix="회"
@@ -271,7 +273,8 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
 
             <View style={styles.insightBox}>
               {(() => {
-                const maxHourIdx = hourlyData.indexOf(Math.max(...hourlyData));
+                const maxVal = hourlyData.length > 0 ? Math.max(...hourlyData) : 0;
+                const maxHourIdx = maxVal > 0 ? hourlyData.indexOf(maxVal) : 0;
                 const maxHour = hourlyLabels[maxHourIdx];
                 const activeDays = days.filter(d => breastfeedCounts[days.indexOf(d)] > 0).length;
                 const avg = records.filter(r => r.type === 'breastfeed').length / Math.max(activeDays, 1);
@@ -351,7 +354,7 @@ const styles = StyleSheet.create({
     gap: 10, paddingHorizontal: DS.px, marginBottom: 16,
   },
   summaryCard: {
-    flex: 1, minWidth: '44%',
+    flex: 1, minWidth: (Dimensions.get('window').width - 40 - 10) / 2,
     backgroundColor: DS.surface, borderRadius: DS.radius,
     padding: 16, alignItems: 'center',
     ...cardShadow,

@@ -58,7 +58,9 @@ export const RECORD_TYPES: RecordType[] = ['breastfeed', 'bottle', 'pump', 'pee'
 export function getRelativeTime(isoString: string): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
+  if (isNaN(then)) return '-';
   const diffMs = now - then;
+  if (diffMs < 0) return '방금 전'; // future record
   const diffMin = Math.floor(diffMs / 60000);
   const diffHr = Math.floor(diffMs / 3600000);
   const diffDay = Math.floor(diffMs / 86400000);

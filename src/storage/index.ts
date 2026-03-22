@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RecordEntry, GrowthEntry } from '../types';
+import { getBabyProfile, saveBabyProfile } from './auth';
 
 const KEY = 'agalog_records';
 const GROWTH_KEY = 'agalog_growth';
@@ -7,7 +8,13 @@ const BIRTHDAY_KEY = 'agalog_baby_birthday';
 
 export async function getRecords(): Promise<RecordEntry[]> {
   const raw = await AsyncStorage.getItem(KEY);
-  return raw ? JSON.parse(raw) : [];
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addRecord(entry: RecordEntry): Promise<void> {
@@ -24,7 +31,13 @@ export async function deleteRecord(id: string): Promise<void> {
 
 export async function getGrowthEntries(): Promise<GrowthEntry[]> {
   const raw = await AsyncStorage.getItem(GROWTH_KEY);
-  return raw ? JSON.parse(raw) : [];
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addGrowthEntry(entry: GrowthEntry): Promise<void> {
@@ -40,9 +53,20 @@ export async function deleteGrowthEntry(id: string): Promise<void> {
 }
 
 export async function getBabyBirthday(): Promise<string | null> {
+  // Check new BabyProfile key first, then fall back to legacy key
+  const profile = await getBabyProfile();
+  if (profile?.birthday) return profile.birthday;
   return AsyncStorage.getItem(BIRTHDAY_KEY);
 }
 
 export async function setBabyBirthday(dateStr: string): Promise<void> {
+  // Write to both the new BabyProfile and the legacy key for consistency
   await AsyncStorage.setItem(BIRTHDAY_KEY, dateStr);
+  const profile = await getBabyProfile();
+  if (profile) {
+    profile.birthday = dateStr;
+    await saveBabyProfile(profile);
+  } else {
+    await saveBabyProfile({ name: '', birthday: dateStr, birthTime: '' });
+  }
 }
