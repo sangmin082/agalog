@@ -76,7 +76,8 @@ export default function GrowthScreen() {
             }
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ['images'],
-              quality: 0.8,
+              quality: 0.4,
+              allowsEditing: true,
             });
             if (!result.canceled && result.assets[0]) {
               await runOcr(result.assets[0].uri, apiKey!);
@@ -88,7 +89,8 @@ export default function GrowthScreen() {
           onPress: async () => {
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ['images'],
-              quality: 0.8,
+              quality: 0.4,
+              allowsEditing: true,
             });
             if (!result.canceled && result.assets[0]) {
               await runOcr(result.assets[0].uri, apiKey!);

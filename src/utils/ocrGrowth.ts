@@ -43,25 +43,26 @@ export async function extractGrowthFromImage(
 
 숫자만 추출하세요 (단위 제외). 읽기 어려운 값은 null로 하세요.`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64 } },
-          ],
-        }],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 256,
-        },
-      }),
-    },
-  );
+  const body = JSON.stringify({
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64 } },
+      ],
+    }],
+    generationConfig: { temperature: 0, maxOutputTokens: 256 },
+  });
+
+  // Retry up to 3 times on 429 with backoff
+  let response: Response = null as any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+    );
+    if (response.status !== 429) break;
+    await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+  }
 
   if (!response.ok) {
     const err = await response.text();
