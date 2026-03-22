@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const GEMINI_KEY_STORAGE = 'agalog_gemini_api_key';
 const DEFAULT_GEMINI_KEY = 'REMOVED_KEY';
@@ -27,7 +27,7 @@ export async function extractGrowthFromImage(
 ): Promise<OcrGrowthResult> {
   // Read image as base64
   const base64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: 'base64' as any,
+    encoding: FileSystem.EncodingType.Base64,
   });
 
   const mimeType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
