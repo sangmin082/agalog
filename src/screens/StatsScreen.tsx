@@ -228,7 +228,7 @@ export default function StatsScreen({ refresh }: { refresh: number }) {
                   legend: [],
                 }}
                 width={W} height={180} chartConfig={CHART_BASE}
-                bezier style={styles.chart} withLegend={false}
+                bezier style={styles.chart}
               />
             </View>
 
