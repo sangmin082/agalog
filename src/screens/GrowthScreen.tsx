@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Modal, TextInput, Alert, ScrollView, Dimensions, Platform,
+  Modal, TextInput, Alert, ScrollView, Dimensions, Platform, ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
+import * as ImagePicker from 'expo-image-picker';
 import { getGrowthEntries, addGrowthEntry, deleteGrowthEntry } from '../storage';
 import { GrowthEntry } from '../types';
 import { DS, cardShadow } from '../theme';
+import { extractGrowthFromImage, getGeminiApiKey, saveGeminiApiKey } from '../utils/ocrGrowth';
 
 const W = Dimensions.get('window').width;
 
@@ -38,9 +40,102 @@ export default function GrowthScreen() {
   const [entryDate, setEntryDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [chartTab, setChartTab] = useState<ChartTab>('weight');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [apiKeyModal, setApiKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   const load = useCallback(async () => { setEntries(await getGrowthEntries()); }, []);
   useEffect(() => { load(); }, [load]);
+
+  const handleOcrPhoto = useCallback(async () => {
+    // Check API key
+    let apiKey = await getGeminiApiKey();
+    if (!apiKey) {
+      setApiKeyModal(true);
+      return;
+    }
+
+    // Request camera/gallery permission & pick image
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '사진 라이브러리 접근 권한이 필요해요.');
+      return;
+    }
+
+    Alert.alert(
+      '사진 선택',
+      '성장 기록지 사진을 선택해주세요',
+      [
+        {
+          text: '카메라로 촬영',
+          onPress: async () => {
+            const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+            if (camPerm.status !== 'granted') {
+              Alert.alert('권한 필요', '카메라 접근 권한이 필요해요.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await runOcr(result.assets[0].uri, apiKey!);
+            }
+          },
+        },
+        {
+          text: '갤러리에서 선택',
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await runOcr(result.assets[0].uri, apiKey!);
+            }
+          },
+        },
+        { text: '취소', style: 'cancel' },
+      ],
+    );
+  }, []);
+
+  const runOcr = useCallback(async (uri: string, apiKey: string) => {
+    setOcrLoading(true);
+    try {
+      const result = await extractGrowthFromImage(uri, apiKey);
+      // Pre-fill form fields
+      if (result.weightKg !== undefined) setWeightKg(String(result.weightKg));
+      if (result.heightCm !== undefined) setHeightCm(String(result.heightCm));
+      if (result.headCm !== undefined) setHeadCm(String(result.headCm));
+      if (result.date) {
+        const d = new Date(result.date + 'T00:00:00');
+        if (!isNaN(d.getTime())) setEntryDate(d);
+      }
+      setModal(true);
+      if (!result.weightKg && !result.heightCm && !result.headCm) {
+        Alert.alert('인식 실패', '수치를 찾지 못했어요. 직접 입력해주세요.');
+      } else {
+        Alert.alert('인식 완료', '값을 확인하고 저장해주세요!');
+      }
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '사진 분석 중 오류가 발생했어요.');
+    } finally {
+      setOcrLoading(false);
+    }
+  }, []);
+
+  const handleSaveApiKey = useCallback(async () => {
+    if (!apiKeyInput.trim()) {
+      Alert.alert('오류', 'API 키를 입력해주세요.');
+      return;
+    }
+    await saveGeminiApiKey(apiKeyInput.trim());
+    setApiKeyModal(false);
+    setApiKeyInput('');
+    // Retry OCR after key saved
+    handleOcrPhoto();
+  }, [apiKeyInput, handleOcrPhoto]);
 
   const handleSave = useCallback(async () => {
     if (!weightKg && !heightCm && !headCm) {
@@ -119,10 +214,21 @@ export default function GrowthScreen() {
           <Text style={styles.headerTitle}>성장 기록</Text>
           <Text style={styles.headerSub}>아기의 성장 곡선을 추적해요</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModal(true)}>
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>추가</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtns}>
+          <TouchableOpacity style={styles.ocrBtn} onPress={handleOcrPhoto} disabled={ocrLoading}>
+            {ocrLoading
+              ? <ActivityIndicator size="small" color={DS.primary} />
+              : <>
+                  <Ionicons name="camera-outline" size={16} color={DS.primary} />
+                  <Text style={styles.ocrBtnText}>사진</Text>
+                </>
+            }
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={() => setModal(true)}>
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.addBtnText}>추가</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -316,6 +422,33 @@ export default function GrowthScreen() {
         </View>
       </Modal>
 
+      {/* API Key Modal */}
+      <Modal visible={apiKeyModal} transparent animationType="slide">
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Gemini API 키 입력</Text>
+            <Text style={styles.apiKeyHint}>
+              aistudio.google.com에서{'\n'}무료 API 키를 발급받으세요
+            </Text>
+            <TextInput
+              style={styles.apiKeyInput}
+              placeholder="AIza..."
+              placeholderTextColor={DS.textLight}
+              value={apiKeyInput}
+              onChangeText={setApiKeyInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity style={styles.pickerDoneBtn} onPress={handleSaveApiKey}>
+              <Text style={styles.pickerDoneBtnText}>저장하고 계속</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setApiKeyModal(false)}>
+              <Text style={styles.cancelBtnText}>취소</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Date picker — Android */}
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
@@ -361,12 +494,26 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 32, fontWeight: '800', color: DS.text, letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: DS.textLight, marginTop: 4 },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ocrBtn: {
+    borderRadius: DS.radiusSm, paddingHorizontal: 12, paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: DS.primary, minWidth: 56, justifyContent: 'center',
+  },
+  ocrBtnText: { color: DS.primary, fontSize: 14, fontWeight: '700' },
   addBtn: {
     backgroundColor: DS.primary, borderRadius: DS.radiusSm,
     paddingHorizontal: 14, paddingVertical: 10,
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  apiKeyHint: { fontSize: 13, color: DS.textSub, textAlign: 'center', marginBottom: 16, lineHeight: 20 },
+  apiKeyInput: {
+    backgroundColor: DS.bg, borderRadius: DS.radiusSm,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 14, color: DS.text, borderWidth: 1, borderColor: DS.border,
+    marginBottom: 8,
+  },
 
   list: { paddingHorizontal: DS.px, paddingBottom: 40 },
 
